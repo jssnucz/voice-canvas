@@ -50,20 +50,44 @@ export interface CanvasEdge {
 }
 
 // ========== Delta Command (LLM output) ==========
-export interface DeltaCommand {
-  action: 'create' | 'update' | 'delete' | 'move' | 'connect' | 'query';
-  targets: string[];
-  payload?: {
-    elements?: Partial<CanvasElement>[];
-    edges?: Partial<CanvasEdge>[];
-    layout?: 'vertical' | 'horizontal' | 'grid';
-  };
+export type DeltaCommand = {
   reasoning?: string;
-}
+} & (
+  | {
+      action: 'create';
+      targets?: never;
+      payload: {
+        elements?: Partial<CanvasElement>[];
+        edges?: Partial<CanvasEdge>[];
+        layout?: 'vertical' | 'horizontal' | 'grid';
+      };
+    }
+  | {
+      action: 'update' | 'delete' | 'move';
+      targets: string[];
+      payload?: {
+        elements?: Partial<CanvasElement>[];
+        edges?: Partial<CanvasEdge>[];
+        layout?: 'vertical' | 'horizontal' | 'grid';
+      };
+    }
+  | {
+      action: 'connect';
+      targets: [string, string];
+      payload?: {
+        edges?: Partial<CanvasEdge>[];
+      };
+    }
+  | {
+      action: 'query';
+      targets: string[];
+      payload?: never;
+    }
+);
 
 export interface LLMResponse {
   commands: DeltaCommand[];
-  voiceReply?: string | null;
+  voiceReply?: string;
 }
 
 // ========== Command Record (for undo/redo) ==========
@@ -94,7 +118,6 @@ export interface DiagramState {
 
 // ========== UI State ==========
 export interface UIState {
-  isListening: boolean;
   phase: VoicePhase;
   transcript: string;
   interimTranscript: string;
@@ -113,6 +136,8 @@ export interface CommandRequest {
       label: string;
       voiceAliases: VoiceAliases;
       position: { x: number; y: number };
+      size: { width: number; height: number };
+      style: ElementStyle;
     }>;
     edges: Array<{
       id: string;
@@ -120,6 +145,7 @@ export interface CommandRequest {
       target: string;
       type: 'solid' | 'dashed';
       label?: string;
+      style?: { stroke?: string; strokeWidth?: number };
     }>;
     selectedId: string | null;
     lastMentionedId: string | null;
