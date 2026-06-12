@@ -162,17 +162,25 @@ export const useDiagramStore = create<Store>((set, get) => ({
 
   applyCommands: (commands, utterance) => {
     for (const cmd of commands) {
-      const state = get();
-      const beforeIds = new Set(Object.keys(state.elements));
-      const inverse = computeInverse(cmd, state);
+      const preState = get();
+      const beforeElementIds = new Set(Object.keys(preState.elements));
+      const beforeEdgeIds = new Set(preState.edges.map(e => e.id));
+
+      const inverse = computeInverse(cmd, preState);
 
       executeCommandLocally(set, get, cmd);
 
-      // Resolve create inverses: capture newly created IDs after execution
+      // Resolve inverses that need post-execution IDs
+      const postState = get();
+
       if (cmd.action === 'create' && inverse.action === 'delete') {
-        const afterIds = Object.keys(get().elements);
-        const newIds = afterIds.filter(id => !beforeIds.has(id));
-        inverse.targets = newIds;
+        const afterIds = Object.keys(postState.elements);
+        inverse.targets = afterIds.filter(id => !beforeElementIds.has(id));
+      }
+
+      if (cmd.action === 'connect' && inverse.action === 'delete') {
+        const newEdgeId = postState.edges.find(e => !beforeEdgeIds.has(e.id))?.id;
+        inverse.targets = newEdgeId ? [newEdgeId] : [];
       }
 
       const record: CommandRecord = {
@@ -183,7 +191,7 @@ export const useDiagramStore = create<Store>((set, get) => ({
         utterance,
       };
 
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      const newHistory = postState.history.slice(0, postState.historyIndex + 1);
       newHistory.push(record);
       set({
         history: newHistory,
@@ -264,9 +272,10 @@ function computeInverse(cmd: DeltaCommand, state: Store): DeltaCommand {
   }
 
   if (cmd.action === 'connect') {
+    // Edge ID not known yet — resolved post-execution in applyCommands
     return {
       action: 'delete',
-      targets: cmd.targets,
+      targets: [], // filled by applyCommands after edge creation
     } as DeltaCommand;
   }
 
@@ -287,6 +296,8 @@ function executeCommandLocally(
       for (const spec of elSpecs) {
         if (!spec.type) continue;
         const newEl = state.createElement(spec.type as ElementType, spec.label);
+        // Preserve original ID for undo of delete
+        if (spec.id) newEl.id = spec.id;
         if (spec.style) Object.assign(newEl.style, spec.style);
         if (spec.size) newEl.size = { ...newEl.size, ...spec.size };
         if (spec.position) newEl.position = spec.position;
@@ -353,7 +364,9 @@ function executeCommandLocally(
         for (const id of ids) delete newElements[id];
         return {
           elements: newElements,
-          edges: s.edges.filter((e) => !ids.includes(e.source) && !ids.includes(e.target)),
+          edges: s.edges.filter((e) =>
+            !ids.includes(e.id) && !ids.includes(e.source) && !ids.includes(e.target)
+          ),
           selectedId: ids.includes(s.selectedId || '') ? null : s.selectedId,
           lastMentionedId: ids.includes(s.lastMentionedId || '') ? null : s.lastMentionedId,
         };
