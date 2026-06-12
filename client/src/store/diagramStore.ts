@@ -174,8 +174,12 @@ export const useDiagramStore = create<Store>((set, get) => ({
       const postState = get();
 
       if (cmd.action === 'create' && inverse.action === 'delete') {
-        const afterIds = Object.keys(postState.elements);
-        inverse.targets = afterIds.filter(id => !beforeElementIds.has(id));
+        const afterElementIds = Object.keys(postState.elements);
+        const newElementIds = afterElementIds.filter(id => !beforeElementIds.has(id));
+        const newEdgeIds = postState.edges
+          .filter(e => !beforeEdgeIds.has(e.id))
+          .map(e => e.id);
+        inverse.targets = [...newElementIds, ...newEdgeIds];
       }
 
       if (cmd.action === 'connect' && inverse.action === 'delete') {
