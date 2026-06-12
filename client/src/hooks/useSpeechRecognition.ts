@@ -19,13 +19,17 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
 
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const onResultRef = useRef(onResult);
+  const onErrorRef = useRef(onError);
+  onResultRef.current = onResult;
+  onErrorRef.current = onError;
 
   useEffect(() => {
     const SpeechRecognitionCtor =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognitionCtor) {
-      onError?.('您的浏览器不支持语音识别。请使用 Chrome 或 Edge 浏览器。');
+      onErrorRef.current?.('您的浏览器不支持语音识别。请使用 Chrome 或 Edge 浏览器。');
       return;
     }
 
@@ -54,9 +58,9 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       const avgConfidence = resultCount > 0 ? confidence / resultCount : 1;
 
       if (finalTranscript) {
-        onResult?.(finalTranscript, true, avgConfidence);
+        onResultRef.current?.(finalTranscript, true, avgConfidence);
       } else if (interim) {
-        onResult?.(interim, false, 1);
+        onResultRef.current?.(interim, false, 1);
       }
     };
 
@@ -68,7 +72,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
         : event.error === 'not-allowed'
         ? '麦克风权限被拒绝'
         : `语音识别错误: ${event.error}`;
-      onError?.(errorMsg);
+      onErrorRef.current?.(errorMsg);
       setIsListening(false);
     };
 
@@ -85,7 +89,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
 
   const start = useCallback(() => {
     if (!recognitionRef.current) {
-      onError?.('语音识别不可用');
+      onErrorRef.current?.('语音识别不可用');
       return;
     }
     try {
@@ -93,7 +97,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       setIsListening(true);
     } catch (err: any) {
       if (err.name !== 'InvalidStateError') {
-        onError?.(`启动语音识别失败: ${err.message}`);
+        onErrorRef.current?.(`启动语音识别失败: ${err.message}`);
       }
     }
   }, [onError]);

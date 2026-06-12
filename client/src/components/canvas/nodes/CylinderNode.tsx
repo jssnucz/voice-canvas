@@ -15,13 +15,13 @@ export interface CylinderData {
 function CylinderNode({ data, selected }: NodeProps<CylinderData>) {
   const { label, style } = data;
   return (
-    <div className="relative flex items-center justify-center" style={{ width: 140, height: 90 }}>
-      <svg width="140" height="90" className="absolute inset-0">
+    <div className="relative flex items-center justify-center" style={{ width: 140, height: 80 }}>
+      <svg width="140" height="80" className="absolute inset-0">
         <ellipse cx="70" cy="15" rx="70" ry="15" fill={style.fill} stroke={selected ? '#60A5FA' : style.stroke} strokeWidth={selected ? 3 : 2} />
-        <rect x="0" y="15" width="140" height="60" fill={style.fill} stroke="none" />
-        <line x1="0" y1="15" x2="0" y2="75" stroke={selected ? '#60A5FA' : style.stroke} strokeWidth={selected ? 3 : 2} />
-        <line x1="140" y1="15" x2="140" y2="75" stroke={selected ? '#60A5FA' : style.stroke} strokeWidth={selected ? 3 : 2} />
-        <ellipse cx="70" cy="75" rx="70" ry="15" fill={style.fill} stroke={selected ? '#60A5FA' : style.stroke} strokeWidth={selected ? 3 : 2} />
+        <rect x="0" y="15" width="140" height="55" fill={style.fill} stroke="none" />
+        <line x1="0" y1="15" x2="0" y2="70" stroke={selected ? '#60A5FA' : style.stroke} strokeWidth={selected ? 3 : 2} />
+        <line x1="140" y1="15" x2="140" y2="70" stroke={selected ? '#60A5FA' : style.stroke} strokeWidth={selected ? 3 : 2} />
+        <ellipse cx="70" cy="70" rx="70" ry="15" fill={style.fill} stroke={selected ? '#60A5FA' : style.stroke} strokeWidth={selected ? 3 : 2} />
         <ellipse cx="70" cy="15" rx="70" ry="15" fill="none" stroke={style.stroke} strokeWidth={1} strokeDasharray="4 2" opacity="0.5" />
       </svg>
       <span

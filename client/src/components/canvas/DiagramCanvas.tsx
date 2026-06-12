@@ -63,12 +63,16 @@ export function DiagramCanvas() {
         if (change.type === 'select') {
           setSelected(change.selected ? change.id : null);
         }
-        if (change.type === 'position' && change.position) {
-          moveElement(change.id, change.position.x, change.position.y);
-        }
       }
     },
-    [setSelected, moveElement]
+    [setSelected]
+  );
+
+  const onNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      moveElement(node.id, node.position.x, node.position.y);
+    },
+    [moveElement]
   );
 
   const onNodeClick = useCallback(
@@ -94,6 +98,7 @@ export function DiagramCanvas() {
         nodes={rfNodes}
         edges={rfEdges}
         onNodesChange={onNodesChange}
+        onNodeDragStop={onNodeDragStop}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}

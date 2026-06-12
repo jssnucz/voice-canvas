@@ -89,7 +89,7 @@ export const useDiagramStore = create<Store>((set, get) => ({
       type,
       label: label || '',
       voiceAliases: { auto: [], manual: [] },
-      position: position || { x: 250, y: 200 },
+      position: position || { x: 250 + Math.random() * 100, y: 200 + Math.random() * 100 },
       size: { width: defaults.width, height: defaults.height },
       style: {
         fill: defaults.fill,
@@ -160,10 +160,35 @@ export const useDiagramStore = create<Store>((set, get) => ({
       edges: s.edges.filter((e) => e.id !== id),
     })),
 
-  // Stub implementations that will be completed in Task 2.5
   applyCommands: (commands, utterance) => {
     for (const cmd of commands) {
+      const state = get();
+      const beforeIds = new Set(Object.keys(state.elements));
+      const inverse = computeInverse(cmd, state);
+
       executeCommandLocally(set, get, cmd);
+
+      // Resolve create inverses: capture newly created IDs after execution
+      if (cmd.action === 'create' && inverse.action === 'delete') {
+        const afterIds = Object.keys(get().elements);
+        const newIds = afterIds.filter(id => !beforeIds.has(id));
+        inverse.targets = newIds;
+      }
+
+      const record: CommandRecord = {
+        id: generateId(),
+        timestamp: Date.now(),
+        command: cmd,
+        inverse,
+        utterance,
+      };
+
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(record);
+      set({
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      });
     }
   },
 
@@ -196,6 +221,58 @@ export const useDiagramStore = create<Store>((set, get) => ({
 
 // --- Helper functions (file-private) ---
 
+function computeInverse(cmd: DeltaCommand, state: Store): DeltaCommand {
+  if (cmd.action === 'create') {
+    // Inverse of create is delete all created elements
+    // We need to know what IDs were created — they're in the elements after execution
+    // For now, snapshot element IDs before and diff after
+    const beforeIds = new Set(Object.keys(state.elements));
+    // Return a marker that will be resolved after execution
+    return {
+      action: 'delete',
+      targets: [], // will be filled by caller
+    } as DeltaCommand;
+  }
+
+  if (cmd.action === 'delete') {
+    const ids = resolveTargets(cmd.targets, state);
+    const snapshots = ids.map(id => state.elements[id]).filter(Boolean);
+    return {
+      action: 'create',
+      payload: { elements: snapshots as any[] },
+    } as DeltaCommand;
+  }
+
+  if (cmd.action === 'update') {
+    const ids = resolveTargets(cmd.targets, state);
+    const snapshots = ids.map(id => state.elements[id]).filter(Boolean);
+    return {
+      action: 'update',
+      targets: ids,
+      payload: { elements: snapshots.map(el => ({ ...el })) as any[] },
+    } as DeltaCommand;
+  }
+
+  if (cmd.action === 'move') {
+    const ids = resolveTargets(cmd.targets, state);
+    const positions = ids.map(id => state.elements[id]?.position).filter(Boolean);
+    return {
+      action: 'move',
+      targets: ids,
+      payload: { elements: positions.map(p => ({ position: p })) as any[] },
+    } as DeltaCommand;
+  }
+
+  if (cmd.action === 'connect') {
+    return {
+      action: 'delete',
+      targets: cmd.targets,
+    } as DeltaCommand;
+  }
+
+  return { action: 'query', targets: [] } as DeltaCommand;
+}
+
 function executeCommandLocally(
   set: (p: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
   get: () => Store,
@@ -221,8 +298,25 @@ function executeCommandLocally(
       }
     }
     if (edgeSpecs) {
-      // Edges need source/target which are in cmd.targets for connect action
-      // For create action with edges, targets should contain [source, target] pairs
+      for (const edgeSpec of edgeSpecs) {
+        const source = edgeSpec.source;
+        const target = edgeSpec.target;
+        if (!source || !target) continue;
+        const edgeId = generateId();
+        set((s) => ({
+          edges: [
+            ...s.edges,
+            {
+              id: edgeId,
+              source,
+              target,
+              type: edgeSpec.type || 'solid',
+              label: edgeSpec.label,
+              style: edgeSpec.style,
+            },
+          ],
+        }));
+      }
     }
     return;
   }
@@ -231,10 +325,12 @@ function executeCommandLocally(
     const ids = resolveTargets(cmd.targets, state);
 
     if (cmd.action === 'update') {
-      for (const id of ids) {
+      const patches = cmd.payload?.elements || [];
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
         const el = state.elements[id];
-        if (!el || !cmd.payload?.elements?.[0]) continue;
-        const patch = cmd.payload.elements[0];
+        const patch = patches[i % patches.length];
+        if (!el || !patch) continue;
         set((s) => ({
           elements: {
             ...s.elements,
@@ -263,17 +359,19 @@ function executeCommandLocally(
         };
       });
     } else if (cmd.action === 'move') {
-      for (const id of ids) {
-        if (cmd.payload?.elements?.[0]?.position) {
-          const { x, y } = cmd.payload.elements[0].position;
-          set((s) => {
-            const el = s.elements[id];
-            if (!el) return s;
-            return {
-              elements: { ...s.elements, [id]: { ...el, position: { x, y } } },
-            };
-          });
-        }
+      const patches = cmd.payload?.elements || [];
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        const patch = patches[i % patches.length];
+        if (!patch?.position) continue;
+        const { x, y } = patch.position;
+        set((s) => {
+          const el = s.elements[id];
+          if (!el) return s;
+          return {
+            elements: { ...s.elements, [id]: { ...el, position: { x, y } } },
+          };
+        });
       }
     }
     return;
