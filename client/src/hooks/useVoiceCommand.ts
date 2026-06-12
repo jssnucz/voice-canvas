@@ -82,6 +82,13 @@ export function useVoiceCommand() {
         store.setMode('sequence');
         return;
       }
+      // Voice-triggered export
+      if (/导出|保存.*图片|下载.*图/.test(transcript)) {
+        import('../services/exportImage').then(({ exportToPNG }) => {
+          exportToPNG().catch((err) => store.setError(`导出失败: ${err.message}`));
+        });
+        return;
+      }
 
       if (confidence < 0.3) {
         store.setError('语音识别置信度过低，请重新说一遍');
