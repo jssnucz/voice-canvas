@@ -7,9 +7,10 @@ import { useDiagramStore } from './store/diagramStore';
 
 export default function App() {
   const phase = useDiagramStore((s) => s.phase);
+  const isListening = useDiagramStore((s) => s.phase === 'listening');
 
   return (
-    <div className="w-screen h-screen flex flex-col">
+    <div className={`w-screen h-screen flex flex-col transition-all duration-500 ${isListening ? 'breathing-border' : ''}`}>
       <header className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700 shrink-0">
         <h1 className="text-lg font-semibold">AI 语音绘图工具</h1>
         <div className="flex items-center gap-3">
