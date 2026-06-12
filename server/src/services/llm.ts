@@ -5,6 +5,11 @@ const baseURL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
 
 const client = new OpenAI({ apiKey, baseURL });
 
+// Validate API key is set
+if (!apiKey) {
+  console.warn('[LLM] DEEPSEEK_API_KEY not set. LLM calls will fail with 401.');
+}
+
 export interface LLMCallOptions {
   model: 'deepseek-chat' | 'deepseek-v4-lite';
   systemPrompt: string;

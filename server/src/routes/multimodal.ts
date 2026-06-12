@@ -41,9 +41,17 @@ export const multimodalRoutes: FastifyPluginAsync = async (server) => {
         const parsed = JSON.parse(rawResponse);
         const validated = LLMResponseSchema.parse(parsed);
 
-        return reply.send(validated as LLMResponse);
+        return reply.send({
+          commands: validated.commands,
+          voiceReply: validated.voiceReply ?? undefined,
+        });
       } catch (err: any) {
         lastError = err;
+        // Only retry on network/API errors, not on JSON parse or Zod validation failures
+        if (err instanceof SyntaxError || err.name === 'ZodError') {
+          server.log.warn(`LLM response validation failed, not retrying: ${err.message}`);
+          break;
+        }
         server.log.warn(`Multimodal LLM attempt ${attempt + 1} failed: ${err.message}`);
       }
     }
@@ -63,9 +71,9 @@ export const multimodalRoutes: FastifyPluginAsync = async (server) => {
       const validated = LLMResponseSchema.parse(parsed);
 
       return reply.send({
-        ...validated,
+        commands: validated.commands,
         voiceReply: validated.voiceReply || '视觉定位失败，已根据文本上下文推测。',
-      } as LLMResponse);
+      });
     } catch (err: any) {
       return reply.status(422).send({
         error: '视觉定位和文本消解均失败，请换个方式描述',
