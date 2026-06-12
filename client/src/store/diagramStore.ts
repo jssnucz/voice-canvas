@@ -89,7 +89,7 @@ export const useDiagramStore = create<Store>((set, get) => ({
       type,
       label: label || '',
       voiceAliases: { auto: [], manual: [] },
-      position: position || { x: 250, y: 200 },
+      position: position || { x: 250 + Math.random() * 100, y: 200 + Math.random() * 100 },
       size: { width: defaults.width, height: defaults.height },
       style: {
         fill: defaults.fill,
@@ -160,10 +160,43 @@ export const useDiagramStore = create<Store>((set, get) => ({
       edges: s.edges.filter((e) => e.id !== id),
     })),
 
-  // Stub implementations that will be completed in Task 2.5
   applyCommands: (commands, utterance) => {
     for (const cmd of commands) {
+      const preState = get();
+      const beforeElementIds = new Set(Object.keys(preState.elements));
+      const beforeEdgeIds = new Set(preState.edges.map(e => e.id));
+
+      const inverse = computeInverse(cmd, preState);
+
       executeCommandLocally(set, get, cmd);
+
+      // Resolve inverses that need post-execution IDs
+      const postState = get();
+
+      if (cmd.action === 'create' && inverse.action === 'delete') {
+        const afterIds = Object.keys(postState.elements);
+        inverse.targets = afterIds.filter(id => !beforeElementIds.has(id));
+      }
+
+      if (cmd.action === 'connect' && inverse.action === 'delete') {
+        const newEdgeId = postState.edges.find(e => !beforeEdgeIds.has(e.id))?.id;
+        inverse.targets = newEdgeId ? [newEdgeId] : [];
+      }
+
+      const record: CommandRecord = {
+        id: generateId(),
+        timestamp: Date.now(),
+        command: cmd,
+        inverse,
+        utterance,
+      };
+
+      const newHistory = postState.history.slice(0, postState.historyIndex + 1);
+      newHistory.push(record);
+      set({
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      });
     }
   },
 
@@ -196,6 +229,59 @@ export const useDiagramStore = create<Store>((set, get) => ({
 
 // --- Helper functions (file-private) ---
 
+function computeInverse(cmd: DeltaCommand, state: Store): DeltaCommand {
+  if (cmd.action === 'create') {
+    // Inverse of create is delete all created elements
+    // We need to know what IDs were created — they're in the elements after execution
+    // For now, snapshot element IDs before and diff after
+    const beforeIds = new Set(Object.keys(state.elements));
+    // Return a marker that will be resolved after execution
+    return {
+      action: 'delete',
+      targets: [], // will be filled by caller
+    } as DeltaCommand;
+  }
+
+  if (cmd.action === 'delete') {
+    const ids = resolveTargets(cmd.targets, state);
+    const snapshots = ids.map(id => state.elements[id]).filter(Boolean);
+    return {
+      action: 'create',
+      payload: { elements: snapshots as any[] },
+    } as DeltaCommand;
+  }
+
+  if (cmd.action === 'update') {
+    const ids = resolveTargets(cmd.targets, state);
+    const snapshots = ids.map(id => state.elements[id]).filter(Boolean);
+    return {
+      action: 'update',
+      targets: ids,
+      payload: { elements: snapshots.map(el => ({ ...el })) as any[] },
+    } as DeltaCommand;
+  }
+
+  if (cmd.action === 'move') {
+    const ids = resolveTargets(cmd.targets, state);
+    const positions = ids.map(id => state.elements[id]?.position).filter(Boolean);
+    return {
+      action: 'move',
+      targets: ids,
+      payload: { elements: positions.map(p => ({ position: p })) as any[] },
+    } as DeltaCommand;
+  }
+
+  if (cmd.action === 'connect') {
+    // Edge ID not known yet — resolved post-execution in applyCommands
+    return {
+      action: 'delete',
+      targets: [], // filled by applyCommands after edge creation
+    } as DeltaCommand;
+  }
+
+  return { action: 'query', targets: [] } as DeltaCommand;
+}
+
 function executeCommandLocally(
   set: (p: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
   get: () => Store,
@@ -210,6 +296,8 @@ function executeCommandLocally(
       for (const spec of elSpecs) {
         if (!spec.type) continue;
         const newEl = state.createElement(spec.type as ElementType, spec.label);
+        // Preserve original ID for undo of delete
+        if (spec.id) newEl.id = spec.id;
         if (spec.style) Object.assign(newEl.style, spec.style);
         if (spec.size) newEl.size = { ...newEl.size, ...spec.size };
         if (spec.position) newEl.position = spec.position;
@@ -221,8 +309,25 @@ function executeCommandLocally(
       }
     }
     if (edgeSpecs) {
-      // Edges need source/target which are in cmd.targets for connect action
-      // For create action with edges, targets should contain [source, target] pairs
+      for (const edgeSpec of edgeSpecs) {
+        const source = edgeSpec.source;
+        const target = edgeSpec.target;
+        if (!source || !target) continue;
+        const edgeId = generateId();
+        set((s) => ({
+          edges: [
+            ...s.edges,
+            {
+              id: edgeId,
+              source,
+              target,
+              type: edgeSpec.type || 'solid',
+              label: edgeSpec.label,
+              style: edgeSpec.style,
+            },
+          ],
+        }));
+      }
     }
     return;
   }
@@ -231,10 +336,12 @@ function executeCommandLocally(
     const ids = resolveTargets(cmd.targets, state);
 
     if (cmd.action === 'update') {
-      for (const id of ids) {
+      const patches = cmd.payload?.elements || [];
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
         const el = state.elements[id];
-        if (!el || !cmd.payload?.elements?.[0]) continue;
-        const patch = cmd.payload.elements[0];
+        const patch = patches[i % patches.length];
+        if (!el || !patch) continue;
         set((s) => ({
           elements: {
             ...s.elements,
@@ -243,7 +350,11 @@ function executeCommandLocally(
               ...patch,
               id,
               style: patch.style ? { ...s.elements[id].style, ...patch.style } : s.elements[id].style,
-              size: patch.size ? { ...s.elements[id].size, ...patch.size } : s.elements[id].size,
+              size: patch.size ? (
+                patch.metadata?.sizeMode === 'scale'
+                  ? { width: s.elements[id].size.width * patch.size.width, height: s.elements[id].size.height * patch.size.height }
+                  : { ...s.elements[id].size, ...patch.size }
+              ) : s.elements[id].size,
               position: patch.position ? patch.position : s.elements[id].position,
               voiceAliases: patch.voiceAliases ? patch.voiceAliases : s.elements[id].voiceAliases,
             },
@@ -257,23 +368,27 @@ function executeCommandLocally(
         for (const id of ids) delete newElements[id];
         return {
           elements: newElements,
-          edges: s.edges.filter((e) => !ids.includes(e.source) && !ids.includes(e.target)),
+          edges: s.edges.filter((e) =>
+            !ids.includes(e.id) && !ids.includes(e.source) && !ids.includes(e.target)
+          ),
           selectedId: ids.includes(s.selectedId || '') ? null : s.selectedId,
           lastMentionedId: ids.includes(s.lastMentionedId || '') ? null : s.lastMentionedId,
         };
       });
     } else if (cmd.action === 'move') {
-      for (const id of ids) {
-        if (cmd.payload?.elements?.[0]?.position) {
-          const { x, y } = cmd.payload.elements[0].position;
-          set((s) => {
-            const el = s.elements[id];
-            if (!el) return s;
-            return {
-              elements: { ...s.elements, [id]: { ...el, position: { x, y } } },
-            };
-          });
-        }
+      const patches = cmd.payload?.elements || [];
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        const patch = patches[i % patches.length];
+        if (!patch?.position) continue;
+        const { x, y } = patch.position;
+        set((s) => {
+          const el = s.elements[id];
+          if (!el) return s;
+          return {
+            elements: { ...s.elements, [id]: { ...el, position: { x, y } } },
+          };
+        });
       }
     }
     return;

@@ -25,6 +25,7 @@ function RectNode({ data, selected }: NodeProps<RectData>) {
         fontSize: style.fontSize,
         fontWeight: style.fontWeight,
         color: '#1F2937',
+        width: 160,
       }}
     >
       <Handle type="target" position={Position.Top} className="!bg-gray-500" />
