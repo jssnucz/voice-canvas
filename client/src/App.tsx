@@ -1,0 +1,27 @@
+import { DiagramCanvas } from './components/canvas/DiagramCanvas';
+import { VoiceOverlay } from './components/voice/VoiceOverlay';
+import { VoiceButton } from './components/voice/VoiceButton';
+import { TranscriptBar } from './components/voice/TranscriptBar';
+import { ModeSwitcher } from './components/toolbar/ModeSwitcher';
+import { useDiagramStore } from './store/diagramStore';
+
+export default function App() {
+  const phase = useDiagramStore((s) => s.phase);
+
+  return (
+    <div className="w-screen h-screen flex flex-col">
+      <header className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700 shrink-0">
+        <h1 className="text-lg font-semibold">AI 语音绘图工具</h1>
+        <div className="flex items-center gap-3">
+          <ModeSwitcher />
+          <VoiceButton />
+        </div>
+      </header>
+      <main className="flex-1 relative">
+        <DiagramCanvas />
+        <TranscriptBar />
+        <VoiceOverlay phase={phase} />
+      </main>
+    </div>
+  );
+}
