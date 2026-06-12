@@ -30,6 +30,7 @@ const ElementPayloadSchema = z.object({
 const EdgePayloadSchema = z.object({
   type: z.enum(['solid', 'dashed']).optional(),
   label: z.string().optional(),
+  id: z.string().optional(),
   style: z.object({
     stroke: z.string().optional(),
     strokeWidth: z.number().optional(),
@@ -40,7 +41,7 @@ const EdgePayloadSchema = z.object({
 
 const DeltaCommandSchema = z.object({
   action: z.enum(['create', 'update', 'delete', 'move', 'connect', 'query']),
-  targets: z.array(z.string()),
+  targets: z.array(z.string()).default([]),
   payload: z.object({
     elements: z.array(ElementPayloadSchema).optional(),
     edges: z.array(EdgePayloadSchema).optional(),
