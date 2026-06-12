@@ -40,9 +40,17 @@ export const commandRoutes: FastifyPluginAsync = async (server) => {
         const parsed = JSON.parse(rawResponse);
         const validated = LLMResponseSchema.parse(parsed);
 
-        return reply.send(validated as LLMResponse);
+        return reply.send({
+          commands: validated.commands,
+          voiceReply: validated.voiceReply ?? undefined,
+        });
       } catch (err: any) {
         lastError = err;
+        // Only retry on network/API errors, not on JSON parse or Zod validation failures
+        if (err instanceof SyntaxError || err.name === 'ZodError') {
+          server.log.warn(`LLM response validation failed, not retrying: ${err.message}`);
+          break;
+        }
         server.log.warn(`LLM attempt ${attempt + 1} failed: ${err.message}`);
       }
     }
