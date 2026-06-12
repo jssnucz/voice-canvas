@@ -1,6 +1,11 @@
 {
   "name": "@voice-canvas/shared",
   "version": "1.0.0",
+  "type": "module",
   "main": "./types.ts",
-  "types": "./types.ts"
+  "types": "./types.ts",
+  "exports": {
+    ".": "./types.ts"
+  },
+  "sideEffects": false
 }
