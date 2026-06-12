@@ -69,6 +69,20 @@ export function useVoiceCommand() {
 
       store.setInterimTranscript(''); // Clear interim on final
 
+      // Voice-triggered mode switching
+      if (/切换.*流程图|流程图模式/.test(transcript)) {
+        store.setMode('flowchart');
+        return;
+      }
+      if (/切换.*架构图|架构图模式/.test(transcript)) {
+        store.setMode('architecture');
+        return;
+      }
+      if (/切换.*时序图|时序图模式/.test(transcript)) {
+        store.setMode('sequence');
+        return;
+      }
+
       if (confidence < 0.3) {
         store.setError('语音识别置信度过低，请重新说一遍');
         return;
