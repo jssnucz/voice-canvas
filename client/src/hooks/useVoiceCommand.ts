@@ -36,7 +36,7 @@ export function useVoiceCommand() {
           response = await apiClient.textCommand({
             utterance,
             diagramState: buildDiagramState(state),
-          });
+          }, pipeline);
         }
 
         // Execute returned commands with history recording
