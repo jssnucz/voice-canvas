@@ -62,7 +62,12 @@ export function useVoiceCommand() {
 
   const handleFinalResult = useCallback(
     (transcript: string, _isFinal: boolean, confidence: number) => {
-      if (!_isFinal) return;
+      if (!_isFinal) {
+        store.setInterimTranscript(transcript);
+        return;
+      }
+
+      store.setInterimTranscript(''); // Clear interim on final
 
       if (confidence < 0.3) {
         store.setError('语音识别置信度过低，请重新说一遍');
@@ -76,42 +81,23 @@ export function useVoiceCommand() {
       store.setTranscript(transcript);
 
       if (intent.type === 'local') {
-        // Handle special local-only actions
-        if (/撤销|回退|撤回/.test(transcript)) {
-          state.undo();
-          return;
-        }
-        if (/重做|恢复|前进/.test(transcript)) {
-          state.redo();
-          return;
-        }
-        if (/清空|清除|全部删/.test(transcript)) {
-          state.clearAll();
-          return;
-        }
-        // Selection — find element by label/alias match
-        if (/选中|选择|聚焦/.test(transcript)) {
-          const match = findElementByUtterance(transcript, state.elements);
-          if (match) {
-            state.setSelected(match);
+        // Handle special local actions (no DeltaCommands from classifier)
+        if (!intent.commands || intent.commands.length === 0) {
+          if (intent.reason.includes('撤销')) { state.undo(); return; }
+          if (intent.reason.includes('重做')) { state.redo(); return; }
+          if (intent.reason.includes('清空')) { state.clearAll(); return; }
+          if (intent.reason.includes('选择')) {
+            const match = findElementByUtterance(transcript, state.elements);
+            if (match) state.setSelected(match);
+            return;
+          }
+          if (intent.reason.includes('缩放') || intent.reason.includes('视图')) {
+            return; // Handled by React Flow controls
           }
           return;
         }
-        // View controls
-        if (/放大/.test(transcript) && !/缩小/.test(transcript) && !/放大镜/.test(transcript)) {
-          // Zoom in — handled by React Flow controls for now
-          return;
-        }
-        if (/缩小/.test(transcript)) {
-          return;
-        }
-        if (/适应|适合|全部显示|全景/.test(transcript)) {
-          return;
-        }
-        // Other local commands with DeltaCommands
-        if (intent.commands && intent.commands.length > 0) {
-          executeLocalCommands(intent.commands, transcript);
-        }
+        // Commands present — execute them
+        executeLocalCommands(intent.commands, transcript);
       } else {
         const pipeline = intent.type === 'remote-visual'
           ? 'visual'
@@ -163,16 +149,33 @@ function buildDiagramState(state: ReturnType<typeof useDiagramStore.getState>) {
   };
 }
 
-// Helper: find element matching utterance
+// Helper: find element matching utterance (longest match wins — avoids substring false matches)
 function findElementByUtterance(utterance: string, elements: Record<string, CanvasElement>): string | null {
+  let bestMatch: { id: string; length: number } | null = null;
+
   for (const el of Object.values(elements)) {
-    if (el.label && utterance.includes(el.label)) return el.id;
+    // Check label
+    if (el.label && utterance.includes(el.label)) {
+      if (!bestMatch || el.label.length > bestMatch.length) {
+        bestMatch = { id: el.id, length: el.label.length };
+      }
+    }
+    // Check voice aliases
     for (const alias of el.voiceAliases.auto) {
-      if (utterance.includes(alias)) return el.id;
+      if (utterance.includes(alias)) {
+        if (!bestMatch || alias.length > bestMatch.length) {
+          bestMatch = { id: el.id, length: alias.length };
+        }
+      }
     }
     for (const alias of el.voiceAliases.manual) {
-      if (utterance.includes(alias)) return el.id;
+      if (utterance.includes(alias)) {
+        if (!bestMatch || alias.length > bestMatch.length) {
+          bestMatch = { id: el.id, length: alias.length };
+        }
+      }
     }
   }
-  return null;
+
+  return bestMatch?.id ?? null;
 }

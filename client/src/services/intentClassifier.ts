@@ -9,12 +9,12 @@ export interface ClassifiedIntent {
 
 // Category 1: Create basic shapes (6 commands)
 const CREATE_PATTERNS: Array<{ regex: RegExp; elementType: ElementType }> = [
-  { regex: /画.*(?:圆角矩形|开始|结束|起止)/, elementType: 'rounded-rect' },
-  { regex: /画.*(?:矩形|方框|方块|框)/, elementType: 'rect' },
-  { regex: /画.*(?:菱形|判断|条件)/, elementType: 'diamond' },
-  { regex: /画.*(?:圆|椭圆|圆形)/, elementType: 'ellipse' },
-  { regex: /画.*(?:圆柱|数据库)/, elementType: 'cylinder' },
-  { regex: /画.*(?:小人|人物|参与者|用户|外部)/, elementType: 'actor' },
+  { regex: /画.*?(?:圆角矩形|开始|结束|起止)/, elementType: 'rounded-rect' },
+  { regex: /画.*?(?:矩形|方框|方块|框)/, elementType: 'rect' },
+  { regex: /画.*?(?:菱形|判断|条件)/, elementType: 'diamond' },
+  { regex: /画.*?(?:圆|椭圆|圆形)/, elementType: 'ellipse' },
+  { regex: /画.*?(?:圆柱|数据库)/, elementType: 'cylinder' },
+  { regex: /画.*?(?:小人|人物|参与者|用户|外部)/, elementType: 'actor' },
 ];
 
 // Category 2: Delete (3 patterns)
@@ -145,10 +145,10 @@ export function classifyIntent(
       return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ style: { fill: '#FFF9C4', stroke: '#FBC02D' } }] } } as DeltaCommand], utterance: text, reason: '样式修改，本地执行' };
     }
     if (SIZE_BIGGER.test(text)) {
-      return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ size: { width: 200, height: 80 } }] } } as DeltaCommand], utterance: text, reason: '尺寸修改，本地执行' };
+      return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ size: { width: 1.3, height: 1.3 }, metadata: { sizeMode: 'scale' } as Record<string, unknown> }] } } as DeltaCommand], utterance: text, reason: '尺寸修改，本地执行' };
     }
     if (SIZE_SMALLER.test(text)) {
-      return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ size: { width: 120, height: 50 } }] } } as DeltaCommand], utterance: text, reason: '尺寸修改，本地执行' };
+      return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ size: { width: 0.75, height: 0.75 }, metadata: { sizeMode: 'scale' } as Record<string, unknown> }] } } as DeltaCommand], utterance: text, reason: '尺寸修改，本地执行' };
     }
   }
 

@@ -350,7 +350,11 @@ function executeCommandLocally(
               ...patch,
               id,
               style: patch.style ? { ...s.elements[id].style, ...patch.style } : s.elements[id].style,
-              size: patch.size ? { ...s.elements[id].size, ...patch.size } : s.elements[id].size,
+              size: patch.size ? (
+                patch.metadata?.sizeMode === 'scale'
+                  ? { width: s.elements[id].size.width * patch.size.width, height: s.elements[id].size.height * patch.size.height }
+                  : { ...s.elements[id].size, ...patch.size }
+              ) : s.elements[id].size,
               position: patch.position ? patch.position : s.elements[id].position,
               voiceAliases: patch.voiceAliases ? patch.voiceAliases : s.elements[id].voiceAliases,
             },
