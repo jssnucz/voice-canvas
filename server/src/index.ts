@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { commandRoutes } from './routes/command.js';
+import { multimodalRoutes } from './routes/multimodal.js';
 
 const server = Fastify({ logger: true });
 
@@ -9,6 +10,7 @@ await server.register(cors, { origin: true });
 server.get('/api/health', async () => ({ status: 'ok', timestamp: Date.now() }));
 
 await server.register(commandRoutes, { prefix: '/api' });
+await server.register(multimodalRoutes, { prefix: '/api' });
 
 try {
   await server.listen({ port: 3001, host: '0.0.0.0' });
