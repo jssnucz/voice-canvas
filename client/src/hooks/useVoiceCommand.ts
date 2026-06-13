@@ -106,10 +106,22 @@ export function useVoiceCommand() {
           // Simulate context propagation for classification of subsequent parts
           if (intent.type === 'local') {
             if (intent.localAction === 'create' || intent.localAction === 'command') {
-              simHasLastMentioned = true; // create / update / delete all set lastMentionedId
+              // Check if this command deletes the lastMentioned / selected target
+              const cmdTargets = intent.commands?.[0]?.targets;
+              if (intent.commands?.[0]?.action === 'delete') {
+                if (cmdTargets?.includes('lastMentioned')) simHasLastMentioned = false;
+                if (cmdTargets?.includes('selected')) simHasSelected = false;
+              } else {
+                // create / update / connect all set lastMentionedId
+                simHasLastMentioned = true;
+              }
             }
             if (intent.localAction === 'select') {
               simHasSelected = true;
+            }
+            if (intent.localAction === 'clear') {
+              simHasLastMentioned = false;
+              simHasSelected = false;
             }
           }
         }
