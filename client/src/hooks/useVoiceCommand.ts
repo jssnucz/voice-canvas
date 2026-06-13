@@ -1,9 +1,8 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useSpeechRecognition } from './useSpeechRecognition';
-import { classifyIntent } from '../services/intentClassifier';
+import { classifyIntent, splitUtterance } from '../services/intentClassifier';
 import { apiClient } from '../services/api';
-import { generateId } from '../utils/id';
 import type { DeltaCommand, LLMResponse, CanvasElement } from '@shared/types';
 
 export function useVoiceCommand() {
@@ -60,6 +59,40 @@ export function useVoiceCommand() {
     [store]
   );
 
+  // Process a single sub-command (for multi-command utterances).
+  // Returns 'local' if handled, 'remote' if the sub-command needs LLM.
+  const processSubCommand = useCallback(
+    (part: string): 'local' | 'remote' => {
+      const state = useDiagramStore.getState();
+      const hasTarget = !!(state.selectedId || state.lastMentionedId);
+      const hasLastMentioned = !!state.lastMentionedId;
+      const intent = classifyIntent(part, hasTarget, hasLastMentioned);
+
+      if (intent.type !== 'local') {
+        return 'remote';
+      }
+
+      // Special local actions with no DeltaCommands
+      if (!intent.commands || intent.commands.length === 0) {
+        if (intent.reason.includes('撤销')) { state.undo(); return 'local'; }
+        if (intent.reason.includes('重做')) { state.redo(); return 'local'; }
+        if (intent.reason.includes('清空')) { state.clearAll(); return 'local'; }
+        if (intent.reason.includes('选择')) {
+          const match = findElementByUtterance(part, state.elements);
+          if (match) state.setSelected(match);
+          return 'local';
+        }
+        // Zoom / fit-view — no-op in multi-command context
+        return 'local';
+      }
+
+      // Execute DeltaCommands
+      store.applyCommands(intent.commands, part);
+      return 'local';
+    },
+    [store]
+  );
+
   const handleFinalResult = useCallback(
     (transcript: string, _isFinal: boolean, confidence: number) => {
       if (!_isFinal) {
@@ -95,11 +128,36 @@ export function useVoiceCommand() {
         return;
       }
 
+      store.setTranscript(transcript);
+
+      // ---- Multi-command splitting (US-08) ----
+      const parts = splitUtterance(transcript);
+      if (parts.length > 1) {
+        store.setPhase('thinking-text');
+
+        for (const part of parts) {
+          const result = processSubCommand(part);
+          if (result === 'remote') {
+            // Fall back: send the original compound utterance to LLM
+            const fallbackState = useDiagramStore.getState();
+            const fbHasTarget = !!(fallbackState.selectedId || fallbackState.lastMentionedId);
+            const fallbackIntent = classifyIntent(transcript, fbHasTarget, !!fallbackState.lastMentionedId);
+            const pipeline = fallbackIntent.type === 'remote-generate'
+              ? 'generate' : fallbackIntent.type === 'remote-query'
+              ? 'query' : 'text';
+            executeRemoteCommand(transcript, pipeline);
+            return;
+          }
+        }
+
+        store.setPhase('executing');
+        setTimeout(() => store.setPhase('idle'), 500);
+        return;
+      }
+
       const state = useDiagramStore.getState();
       const hasTarget = !!(state.selectedId || state.lastMentionedId);
       const intent = classifyIntent(transcript, hasTarget, !!state.lastMentionedId);
-
-      store.setTranscript(transcript);
 
       if (intent.type === 'local') {
         // Handle special local actions (no DeltaCommands from classifier)
