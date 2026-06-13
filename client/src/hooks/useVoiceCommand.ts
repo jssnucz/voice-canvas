@@ -3,6 +3,7 @@ import { useDiagramStore } from '../store/diagramStore';
 import { useSpeechRecognition } from './useSpeechRecognition';
 import { classifyIntent, splitUtterance, type ClassifiedIntent } from '../services/intentClassifier';
 import { apiClient } from '../services/api';
+import { buildDiagramState } from '../services/stateSerializer';
 import type { LLMResponse, CanvasElement } from '@shared/types';
 
 export function useVoiceCommand() {
@@ -215,32 +216,6 @@ function dispatchLocalIntent(intent: ClassifiedIntent, utterance: string): void 
         state.applyCommands(intent.commands, utterance);
       }
   }
-}
-
-// Helper: build diagram state summary for API
-function buildDiagramState(state: ReturnType<typeof useDiagramStore.getState>) {
-  return {
-    mode: state.mode,
-    elements: Object.values(state.elements).map((el) => ({
-      id: el.id,
-      type: el.type,
-      label: el.label,
-      voiceAliases: el.voiceAliases,
-      position: el.position,
-      size: el.size,
-      style: el.style,
-    })),
-    edges: state.edges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      type: e.type,
-      label: e.label,
-      style: e.style,
-    })),
-    selectedId: state.selectedId,
-    lastMentionedId: state.lastMentionedId,
-  };
 }
 
 // Helper: find element matching utterance (longest match wins — avoids substring false matches)
