@@ -8,7 +8,7 @@ import type {
   VoicePhase,
   ElementType,
 } from '@shared/types';
-import { ELEMENT_DEFAULTS } from '@shared/types';
+import { ELEMENT_DEFAULTS, makeCreateCommand, makeDeleteCommand, makeUpdateCommand, makeMoveCommand, makeQueryCommand } from '@shared/types';
 import { generateId } from '../utils/id';
 
 interface Store {
@@ -240,50 +240,33 @@ function computeInverse(cmd: DeltaCommand, state: Store): DeltaCommand {
     // For now, snapshot element IDs before and diff after
     const beforeIds = new Set(Object.keys(state.elements));
     // Return a marker that will be resolved after execution
-    return {
-      action: 'delete',
-      targets: [], // will be filled by caller
-    } as DeltaCommand;
+    return makeDeleteCommand([]); // targets will be filled by caller
   }
 
   if (cmd.action === 'delete') {
     const ids = resolveTargets(cmd.targets, state);
     const snapshots = ids.map(id => state.elements[id]).filter(Boolean);
-    return {
-      action: 'create',
-      payload: { elements: snapshots as any[] },
-    } as DeltaCommand;
+    return makeCreateCommand({ elements: snapshots as CanvasElement[] });
   }
 
   if (cmd.action === 'update') {
     const ids = resolveTargets(cmd.targets, state);
     const snapshots = ids.map(id => state.elements[id]).filter(Boolean);
-    return {
-      action: 'update',
-      targets: ids,
-      payload: { elements: snapshots.map(el => ({ ...el })) as any[] },
-    } as DeltaCommand;
+    return makeUpdateCommand(ids, snapshots.map(el => ({ ...el })) as CanvasElement[]);
   }
 
   if (cmd.action === 'move') {
     const ids = resolveTargets(cmd.targets, state);
     const positions = ids.map(id => state.elements[id]?.position).filter(Boolean);
-    return {
-      action: 'move',
-      targets: ids,
-      payload: { elements: positions.map(p => ({ position: p })) as any[] },
-    } as DeltaCommand;
+    return makeMoveCommand(ids, positions);
   }
 
   if (cmd.action === 'connect') {
     // Edge ID not known yet — resolved post-execution in applyCommands
-    return {
-      action: 'delete',
-      targets: [], // filled by applyCommands after edge creation
-    } as DeltaCommand;
+    return makeDeleteCommand([]); // targets filled by applyCommands after edge creation
   }
 
-  return { action: 'query', targets: [] } as DeltaCommand;
+  return makeQueryCommand([]);
 }
 
 function executeCommandLocally(

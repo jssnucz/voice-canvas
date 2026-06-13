@@ -1,4 +1,5 @@
 import type { ElementType, DeltaCommand } from '@shared/types';
+import { makeCreateCommand, makeUpdateCommand, makeDeleteCommand } from '@shared/types';
 
 export interface ClassifiedIntent {
   type: 'local' | 'remote-text' | 'remote-visual' | 'remote-generate' | 'remote-query';
@@ -107,10 +108,7 @@ export function classifyIntent(
   if (DELETE_PATTERNS.some((p) => p.test(text)) && hasTarget) {
     return {
       type: 'local',
-      commands: [{
-        action: 'delete',
-        targets: [hasSelectedTarget ? 'selected' : 'lastMentioned'],
-      } as DeltaCommand],
+      commands: [makeDeleteCommand([hasSelectedTarget ? 'selected' : 'lastMentioned'])],
       utterance: text,
       reason: '删除指令，本地执行',
       localAction: 'command',
@@ -128,12 +126,7 @@ export function classifyIntent(
     const noteContent = stickyContentMatch[1].trim();
     return {
       type: 'local',
-      commands: [{
-        action: 'create',
-        payload: {
-          elements: [{ type: 'sticky-note', label: noteContent }],
-        },
-      } as DeltaCommand],
+      commands: [makeCreateCommand({ elements: [{ type: 'sticky-note', label: noteContent }] })],
       utterance: text,
       reason: '创建便签（含内容），本地执行',
       localAction: 'create',
@@ -145,12 +138,7 @@ export function classifyIntent(
     if (pattern.regex.test(text)) {
       return {
         type: 'local',
-        commands: [{
-          action: 'create',
-          payload: {
-            elements: [{ type: pattern.elementType }],
-          },
-        } as DeltaCommand],
+        commands: [makeCreateCommand({ elements: [{ type: pattern.elementType }] })],
         utterance: text,
         reason: `创建${pattern.elementType}，本地执行`,
         localAction: 'create',
@@ -166,11 +154,7 @@ export function classifyIntent(
       const target = hasSelectedTarget ? 'selected' : 'lastMentioned';
       return {
         type: 'local',
-        commands: [{
-          action: 'update',
-          targets: [target],
-          payload: { elements: [{ label: newLabel }] },
-        } as DeltaCommand],
+        commands: [makeUpdateCommand([target], [{ label: newLabel }])],
         utterance: text,
         reason: `标签更新为"${newLabel}"，本地执行`,
         localAction: 'command',
@@ -186,11 +170,7 @@ export function classifyIntent(
     if (COLOR_RED.test(text)) {
       return {
         type: 'local',
-        commands: [{
-          action: 'update',
-          targets: targetArr,
-          payload: { elements: [{ style: { fill: '#FFCDD2', stroke: '#F44336' } }] },
-        } as DeltaCommand],
+        commands: [makeUpdateCommand(targetArr, [{ style: { fill: '#FFCDD2', stroke: '#F44336', fontSize: 14, fontWeight: 'normal' } }])],
         utterance: text,
         reason: '样式修改，本地执行',
         localAction: 'command',
@@ -199,11 +179,7 @@ export function classifyIntent(
     if (COLOR_BLUE.test(text)) {
       return {
         type: 'local',
-        commands: [{
-          action: 'update',
-          targets: targetArr,
-          payload: { elements: [{ style: { fill: '#BBDEFB', stroke: '#2196F3' } }] },
-        } as DeltaCommand],
+        commands: [makeUpdateCommand(targetArr, [{ style: { fill: '#BBDEFB', stroke: '#2196F3', fontSize: 14, fontWeight: 'normal' } }])],
         utterance: text,
         reason: '样式修改，本地执行',
         localAction: 'command',
@@ -212,11 +188,7 @@ export function classifyIntent(
     if (COLOR_GREEN.test(text)) {
       return {
         type: 'local',
-        commands: [{
-          action: 'update',
-          targets: targetArr,
-          payload: { elements: [{ style: { fill: '#C8E6C9', stroke: '#4CAF50' } }] },
-        } as DeltaCommand],
+        commands: [makeUpdateCommand(targetArr, [{ style: { fill: '#C8E6C9', stroke: '#4CAF50', fontSize: 14, fontWeight: 'normal' } }])],
         utterance: text,
         reason: '样式修改，本地执行',
         localAction: 'command',
@@ -225,11 +197,7 @@ export function classifyIntent(
     if (COLOR_YELLOW.test(text)) {
       return {
         type: 'local',
-        commands: [{
-          action: 'update',
-          targets: targetArr,
-          payload: { elements: [{ style: { fill: '#FFF9C4', stroke: '#FBC02D' } }] },
-        } as DeltaCommand],
+        commands: [makeUpdateCommand(targetArr, [{ style: { fill: '#FFF9C4', stroke: '#FBC02D', fontSize: 14, fontWeight: 'normal' } }])],
         utterance: text,
         reason: '样式修改，本地执行',
         localAction: 'command',
@@ -238,16 +206,10 @@ export function classifyIntent(
     if (SIZE_BIGGER.test(text)) {
       return {
         type: 'local',
-        commands: [{
-          action: 'update',
-          targets: targetArr,
-          payload: {
-            elements: [{
-              size: { width: 1.3, height: 1.3 },
-              metadata: { sizeMode: 'scale' } as Record<string, unknown>,
-            }],
-          },
-        } as DeltaCommand],
+        commands: [makeUpdateCommand(targetArr, [{
+          size: { width: 1.3, height: 1.3 },
+          metadata: { sizeMode: 'scale' } as Record<string, unknown>,
+        }])],
         utterance: text,
         reason: '尺寸修改，本地执行',
         localAction: 'command',
@@ -256,16 +218,10 @@ export function classifyIntent(
     if (SIZE_SMALLER.test(text)) {
       return {
         type: 'local',
-        commands: [{
-          action: 'update',
-          targets: targetArr,
-          payload: {
-            elements: [{
-              size: { width: 0.75, height: 0.75 },
-              metadata: { sizeMode: 'scale' } as Record<string, unknown>,
-            }],
-          },
-        } as DeltaCommand],
+        commands: [makeUpdateCommand(targetArr, [{
+          size: { width: 0.75, height: 0.75 },
+          metadata: { sizeMode: 'scale' } as Record<string, unknown>,
+        }])],
         utterance: text,
         reason: '尺寸修改，本地执行',
         localAction: 'command',
