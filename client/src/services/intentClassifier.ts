@@ -7,7 +7,7 @@ export interface ClassifiedIntent {
   reason: string;
 }
 
-// Category 1: Create basic shapes (6 commands)
+// Category 1: Create basic shapes (7 commands, includes sticky-note)
 const CREATE_PATTERNS: Array<{ regex: RegExp; elementType: ElementType }> = [
   { regex: /画.*?(?:圆角矩形|开始|结束|起止)/, elementType: 'rounded-rect' },
   { regex: /画.*?(?:矩形|方框|方块|框)/, elementType: 'rect' },
@@ -15,7 +15,12 @@ const CREATE_PATTERNS: Array<{ regex: RegExp; elementType: ElementType }> = [
   { regex: /画.*?(?:圆|椭圆|圆形)/, elementType: 'ellipse' },
   { regex: /画.*?(?:圆柱|数据库)/, elementType: 'cylinder' },
   { regex: /画.*?(?:小人|人物|参与者|用户|外部)/, elementType: 'actor' },
+  { regex: /画.*?(?:便签|备注|注释)(?!(：|:))/u, elementType: 'sticky-note' },
 ];
+
+// Category 1b: Sticky note with content — extracts label after colon
+const STICKY_CONTENT_RE = /(?:在这|这里|加个?|添加|创建|写个?|新建|画个?).*?(?:备注|便签|注释)[：:]\s*(.+)/u;
+const STICKY_CONTENT_SHORT_RE = /(?:备注|便签|注释)[：:]\s*(.+)/u;
 
 // Category 2: Delete (3 patterns)
 const DELETE_PATTERNS = [
@@ -110,6 +115,23 @@ export function classifyIntent(
     return { type: 'local', commands: [], utterance: text, reason: '选择指令' };
   }
 
+  // Sticky note with content — extract label from utterance
+  const stickyContentMatch = STICKY_CONTENT_RE.test(text) ? text.match(STICKY_CONTENT_RE) : text.match(STICKY_CONTENT_SHORT_RE);
+  if (stickyContentMatch) {
+    const noteContent = stickyContentMatch[1].trim();
+    return {
+      type: 'local',
+      commands: [{
+        action: 'create',
+        payload: {
+          elements: [{ type: 'sticky-note', label: noteContent }],
+        },
+      } as DeltaCommand],
+      utterance: text,
+      reason: '创建便签（含内容），本地执行',
+    };
+  }
+
   // Create — single element
   for (const pattern of CREATE_PATTERNS) {
     if (pattern.regex.test(text)) {
@@ -154,4 +176,40 @@ export function classifyIntent(
 
   // Fallback: send to remote text pipeline
   return { type: 'remote-text', utterance: text, reason: '未命中本地规则，走云端解析' };
+}
+
+// ---- Multi-command splitting ----
+
+/**
+ * Splits a compound utterance into sub-commands.
+ * Uses Chinese punctuation (， 、 ；) and connectors (然后 接着 并且 同时 再).
+ * Returns the original utterance as a single-element array if no split is needed.
+ */
+export function splitUtterance(utterance: string): string[] {
+  // Step 1: Split on Chinese punctuation
+  const byPunctuation = utterance
+    .split(/[，、；]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (byPunctuation.length > 1) return byPunctuation;
+
+  // Step 2: Try splitting on connectors, keep sub-commands meaningful
+  const CONNECTORS = ['然后', '接着', '并且', '同时', '再'];
+  const pattern = new RegExp(`(${CONNECTORS.join('|')})`);
+  const byConnector = utterance
+    .split(pattern)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (byConnector.length <= 1) return [utterance];
+
+  // Drop standalone connector tokens, keep content parts
+  const result: string[] = [];
+  for (const part of byConnector) {
+    if (!CONNECTORS.includes(part)) {
+      result.push(part);
+    }
+  }
+  return result.length > 1 ? result : [utterance];
 }
