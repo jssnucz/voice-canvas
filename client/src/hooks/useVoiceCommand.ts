@@ -1,19 +1,12 @@
 import { useCallback } from 'react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useSpeechRecognition } from './useSpeechRecognition';
-import { classifyIntent, splitUtterance } from '../services/intentClassifier';
+import { classifyIntent, splitUtterance, type ClassifiedIntent } from '../services/intentClassifier';
 import { apiClient } from '../services/api';
-import type { DeltaCommand, LLMResponse, CanvasElement } from '@shared/types';
+import type { LLMResponse, CanvasElement } from '@shared/types';
 
 export function useVoiceCommand() {
   const store = useDiagramStore();
-
-  const executeLocalCommands = useCallback(
-    (commands: DeltaCommand[], utterance: string) => {
-      store.applyCommands(commands, utterance);
-    },
-    [store]
-  );
 
   const executeRemoteCommand = useCallback(
     async (utterance: string, pipeline: 'text' | 'visual' | 'generate' | 'query') => {
@@ -55,40 +48,6 @@ export function useVoiceCommand() {
         store.setError(`指令执行失败: ${err.message}`);
         store.setPhase('idle');
       }
-    },
-    [store]
-  );
-
-  // Process a single sub-command (for multi-command utterances).
-  // Returns 'local' if handled, 'remote' if the sub-command needs LLM.
-  const processSubCommand = useCallback(
-    (part: string): 'local' | 'remote' => {
-      const state = useDiagramStore.getState();
-      const hasTarget = !!(state.selectedId || state.lastMentionedId);
-      const hasLastMentioned = !!state.lastMentionedId;
-      const intent = classifyIntent(part, hasTarget, hasLastMentioned);
-
-      if (intent.type !== 'local') {
-        return 'remote';
-      }
-
-      // Special local actions with no DeltaCommands
-      if (!intent.commands || intent.commands.length === 0) {
-        if (intent.reason.includes('撤销')) { state.undo(); return 'local'; }
-        if (intent.reason.includes('重做')) { state.redo(); return 'local'; }
-        if (intent.reason.includes('清空')) { state.clearAll(); return 'local'; }
-        if (intent.reason.includes('选择')) {
-          const match = findElementByUtterance(part, state.elements);
-          if (match) state.setSelected(match);
-          return 'local';
-        }
-        // Zoom / fit-view — no-op in multi-command context
-        return 'local';
-      }
-
-      // Execute DeltaCommands
-      store.applyCommands(intent.commands, part);
-      return 'local';
     },
     [store]
   );
@@ -135,19 +94,40 @@ export function useVoiceCommand() {
       if (parts.length > 1) {
         store.setPhase('thinking-text');
 
+        // Pre-flight: classify all sub-commands without executing any.
+        // If any needs LLM, delegate the entire utterance — no partial state changes.
+        let simHasSelected = !!useDiagramStore.getState().selectedId;
+        let simHasLastMentioned = !!useDiagramStore.getState().lastMentionedId;
+        const intents: ClassifiedIntent[] = [];
+
         for (const part of parts) {
-          const result = processSubCommand(part);
-          if (result === 'remote') {
-            // Fall back: send the original compound utterance to LLM
-            const fallbackState = useDiagramStore.getState();
-            const fbHasTarget = !!(fallbackState.selectedId || fallbackState.lastMentionedId);
-            const fallbackIntent = classifyIntent(transcript, fbHasTarget, !!fallbackState.lastMentionedId);
-            const pipeline = fallbackIntent.type === 'remote-generate'
-              ? 'generate' : fallbackIntent.type === 'remote-query'
-              ? 'query' : 'text';
-            executeRemoteCommand(transcript, pipeline);
-            return;
+          const intent = classifyIntent(part, simHasSelected, simHasLastMentioned);
+          intents.push(intent);
+          // Simulate context propagation for classification of subsequent parts
+          if (intent.type === 'local') {
+            if (intent.localAction === 'create' || intent.localAction === 'command') {
+              simHasLastMentioned = true; // create / update / delete all set lastMentionedId
+            }
+            if (intent.localAction === 'select') {
+              simHasSelected = true;
+            }
           }
+        }
+
+        const allLocal = intents.every(i => i.type === 'local');
+        if (!allLocal) {
+          // Delegate entire original utterance to LLM — no state was modified
+          const fallbackIntent = classifyIntent(transcript, simHasSelected, simHasLastMentioned);
+          const pipeline = fallbackIntent.type === 'remote-generate'
+            ? 'generate' : fallbackIntent.type === 'remote-query'
+            ? 'query' : 'text';
+          executeRemoteCommand(transcript, pipeline);
+          return;
+        }
+
+        // All local — execute sequentially with localAction routing
+        for (const intent of intents) {
+          dispatchLocalIntent(intent, intent.utterance);
         }
 
         store.setPhase('executing');
@@ -156,27 +136,11 @@ export function useVoiceCommand() {
       }
 
       const state = useDiagramStore.getState();
-      const hasTarget = !!(state.selectedId || state.lastMentionedId);
-      const intent = classifyIntent(transcript, hasTarget, !!state.lastMentionedId);
+      const hasSelectedTarget = !!state.selectedId;
+      const intent = classifyIntent(transcript, hasSelectedTarget, !!state.lastMentionedId);
 
       if (intent.type === 'local') {
-        // Handle special local actions (no DeltaCommands from classifier)
-        if (!intent.commands || intent.commands.length === 0) {
-          if (intent.reason.includes('撤销')) { state.undo(); return; }
-          if (intent.reason.includes('重做')) { state.redo(); return; }
-          if (intent.reason.includes('清空')) { state.clearAll(); return; }
-          if (intent.reason.includes('选择')) {
-            const match = findElementByUtterance(transcript, state.elements);
-            if (match) state.setSelected(match);
-            return;
-          }
-          if (intent.reason.includes('缩放') || intent.reason.includes('视图')) {
-            return; // Handled by React Flow controls
-          }
-          return;
-        }
-        // Commands present — execute them
-        executeLocalCommands(intent.commands, transcript);
+        dispatchLocalIntent(intent, transcript);
       } else {
         const pipeline = intent.type === 'remote-visual'
           ? 'visual'
@@ -188,7 +152,7 @@ export function useVoiceCommand() {
         executeRemoteCommand(transcript, pipeline);
       }
     },
-    [executeLocalCommands, executeRemoteCommand, store]
+    [executeRemoteCommand, store]
   );
 
   const { isListening, start, stop } = useSpeechRecognition({
@@ -200,6 +164,45 @@ export function useVoiceCommand() {
   });
 
   return { isListening, start, stop };
+}
+
+// Dispatch a single local intent using its localAction discriminator (not reason string matching).
+function dispatchLocalIntent(intent: ClassifiedIntent, utterance: string): void {
+  const state = useDiagramStore.getState();
+
+  switch (intent.localAction) {
+    case 'undo':
+      state.undo();
+      return;
+    case 'redo':
+      state.redo();
+      return;
+    case 'clear':
+      state.clearAll();
+      return;
+    case 'select': {
+      const match = findElementByUtterance(utterance, state.elements);
+      if (match) state.setSelected(match);
+      return;
+    }
+    case 'zoom-in':
+    case 'zoom-out':
+    case 'fit-view':
+      // Handled by React Flow controls — no store mutation needed
+      return;
+    case 'create':
+    case 'command': {
+      if (intent.commands && intent.commands.length > 0) {
+        state.applyCommands(intent.commands, utterance);
+      }
+      return;
+    }
+    default:
+      // Unknown or undefined localAction — if commands present, execute them
+      if (intent.commands && intent.commands.length > 0) {
+        state.applyCommands(intent.commands, utterance);
+      }
+  }
 }
 
 // Helper: build diagram state summary for API
