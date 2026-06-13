@@ -11,7 +11,7 @@ if (!apiKey) {
 }
 
 export interface LLMCallOptions {
-  model: 'deepseek-chat' | 'deepseek-v4-lite';
+  model: string;  // Allow configurable model names via env vars (default: deepseek-v4-pro / deepseek-v4-flash)
   systemPrompt: string;
   userMessage: string;
   temperature?: number;
@@ -42,7 +42,7 @@ export async function callLLM(options: LLMCallOptions): Promise<string> {
 }
 
 export interface MultimodalLLMOptions {
-  model: 'deepseek-chat';
+  model: string;  // Allow configurable model names via env vars
   systemPrompt: string;
   userMessage: string;
   imageBase64: string;
@@ -78,15 +78,18 @@ export async function callMultimodalLLM(options: MultimodalLLMOptions): Promise<
   return content;
 }
 
-// Tiered model routing
+// Model name constants — configurable via environment variables
+export const MODEL_CHAT = process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-v4-pro';     // Complex reasoning + vision
+export const MODEL_LITE = process.env.DEEPSEEK_LITE_MODEL || 'deepseek-v4-flash';   // Fast simple responses
+
 export function selectModel(intent: 'text' | 'visual' | 'generate' | 'query'): LLMCallOptions['model'] {
   switch (intent) {
     case 'visual':
     case 'generate':
-      return 'deepseek-chat'; // V4.5 for complex reasoning + vision
+      return MODEL_CHAT;
     case 'text':
     case 'query':
     default:
-      return 'deepseek-v4-lite'; // Lite for fast simple responses
+      return MODEL_LITE;
   }
 }

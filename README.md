@@ -15,7 +15,7 @@
 | 🔄 **流程图** | 自然语言描述 → DAG 自动布局流程图（开始/处理/判断/结束） |
 | 🏗️ **架构图** | 微服务/分布式架构图，区分同步调用（实线）和异步消息（虚线） |
 | 📊 **时序图** | 参与者 + 生命线 + 消息序列，适合描述接口调用链 |
-| 👁️ **多模态指代消解** | 截图 + DeepSeek V4.5 视觉模型精准定位"那个红色的菱形" |
+| 👁️ **多模态指代消解** | 截图 + DeepSeek V4-Pro 视觉模型精准定位"那个红色的菱形" |
 | ⚡ **端侧极速响应** | 25 个高频指令本地执行 <100ms，修改/撤销无需等待 |
 | 🤖 **AI 主动协作** | 架构图场景 AI 建议补全缺失组件 |
 | 📦 **一键导出** | 语音 "导出成图片" → PNG 下载 |
@@ -29,8 +29,8 @@
     ↓
 简单指令 → 本地执行        复杂/视觉指令 → 云端大模型
                                 ↓
-                         DeepSeek V4-Lite (文本)
-                         DeepSeek V4.5  (视觉+推理)
+                         DeepSeek V4-Flash (文本)
+                         DeepSeek V4-Pro  (视觉+推理)
                                 ↓
                          Json → Zod 校验 → DeltaCommand
                                 ↓
@@ -49,7 +49,7 @@
 | 后端 | Fastify + TypeScript |
 | 校验 | Zod |
 | 布局 | Dagre (流程图) / D3-force (架构图) |
-| 大模型 | DeepSeek V4.5 / V4-Lite |
+| 大模型 | DeepSeek V4-Pro / V4-Flash |
 | 截图 | html-to-image |
 
 ## 快速开始
@@ -138,7 +138,7 @@ voice-canvas/
 ├── server/                     # 后端 (Fastify)
 │   └── src/
 │       ├── routes/             # /api/command, /api/multimodal
-│       ├── services/           # DeepSeek LLM 客户端 (V4.5/V4-Lite)
+│       ├── services/           # DeepSeek LLM 客户端 (V4-Pro/V4-Flash)
 │       ├── prompts/            # System Prompt + 图表类型 Prompt
 │       ├── validators/         # Zod 校验 LLM 返回
 │       └── utils/              # 画布摘要生成
