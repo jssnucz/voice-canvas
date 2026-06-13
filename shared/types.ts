@@ -85,6 +85,38 @@ export type DeltaCommand = {
     }
 );
 
+// ========== DeltaCommand factory functions ==========
+// Eliminates the need for `as DeltaCommand` type assertions in client code.
+
+export function makeCreateCommand(opts: {
+  elements?: Partial<CanvasElement>[];
+  edges?: Partial<CanvasEdge>[];
+  layout?: 'vertical' | 'horizontal' | 'grid';
+  reasoning?: string;
+}): DeltaCommand {
+  return { action: 'create', payload: { elements: opts.elements, edges: opts.edges, layout: opts.layout }, reasoning: opts.reasoning };
+}
+
+export function makeUpdateCommand(targets: string[], elements: Partial<CanvasElement>[], reasoning?: string): DeltaCommand {
+  return { action: 'update', targets, payload: { elements }, reasoning };
+}
+
+export function makeDeleteCommand(targets: string[], reasoning?: string): DeltaCommand {
+  return { action: 'delete', targets, payload: { elements: [] }, reasoning };
+}
+
+export function makeMoveCommand(targets: string[], positions: { x: number; y: number }[], reasoning?: string): DeltaCommand {
+  return { action: 'move', targets, payload: { elements: positions.map(p => ({ position: p })) }, reasoning };
+}
+
+export function makeConnectCommand(source: string, target: string, edge?: Partial<CanvasEdge>, reasoning?: string): DeltaCommand {
+  return { action: 'connect', targets: [source, target], payload: { edges: edge ? [edge] : [{ type: 'solid' }] }, reasoning };
+}
+
+export function makeQueryCommand(targets: string[], reasoning?: string): DeltaCommand {
+  return { action: 'query', targets, reasoning };
+}
+
 export interface LLMResponse {
   commands: DeltaCommand[];
   voiceReply?: string;
