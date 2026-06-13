@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useSpeechRecognition } from './useSpeechRecognition';
 import { classifyIntent, splitUtterance, type ClassifiedIntent } from '../services/intentClassifier';
@@ -8,6 +8,7 @@ import type { LLMResponse, CanvasElement } from '@shared/types';
 
 export function useVoiceCommand() {
   const store = useDiagramStore();
+  const pendingExportRef = useRef(false);
 
   const executeRemoteCommand = useCallback(
     async (utterance: string, pipeline: 'text' | 'visual' | 'generate' | 'query') => {
@@ -62,6 +63,18 @@ export function useVoiceCommand() {
 
       store.setInterimTranscript(''); // Clear interim on final
 
+      // Pending export confirmation — check BEFORE any other command processing
+      if (pendingExportRef.current) {
+        pendingExportRef.current = false;
+        if (/^(确认|好的|是|确定|可以|行|好|嗯|对)$/.test(transcript.trim())) {
+          import('../services/exportImage').then(({ exportToPNG }) => {
+            exportToPNG().catch((err) => store.setError(`导出失败: ${err.message}`));
+          });
+        }
+        // If not confirmed, just cancel silently and continue processing
+        return;
+      }
+
       // Voice-triggered mode switching
       if (/切换.*流程图|流程图模式/.test(transcript)) {
         store.setMode('flowchart');
@@ -75,10 +88,11 @@ export function useVoiceCommand() {
         store.setMode('sequence');
         return;
       }
-      // Voice-triggered export
+      // Voice-triggered export — request confirmation
       if (/导出|保存.*图片|下载.*图/.test(transcript)) {
-        import('../services/exportImage').then(({ exportToPNG }) => {
-          exportToPNG().catch((err) => store.setError(`导出失败: ${err.message}`));
+        pendingExportRef.current = true;
+        import('../services/speechSynthesis').then(({ speak }) => {
+          speak('确认导出图片吗？');
         });
         return;
       }
