@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { MultimodalRequest, LLMResponse } from '@shared/types';
-import { callMultimodalLLM, callLLM, selectModel } from '../services/llm.js';
+import { callMultimodalLLM, callLLM, selectModel, MODEL_CHAT, MODEL_LITE } from '../services/llm.js';
 import { SYSTEM_PROMPT } from '../prompts/system.js';
 import { DIAGRAM_TYPE_PROMPTS } from '../prompts/diagramTypes.js';
 import { LLMResponseSchema } from '../validators/command.js';
@@ -30,7 +30,7 @@ export const multimodalRoutes: FastifyPluginAsync = async (server) => {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const rawResponse = await callMultimodalLLM({
-          model: 'deepseek-chat',
+          model: MODEL_CHAT,
           systemPrompt,
           userMessage,
           imageBase64,
@@ -60,7 +60,7 @@ export const multimodalRoutes: FastifyPluginAsync = async (server) => {
     server.log.warn('Multimodal failed, falling back to text-only');
     try {
       const rawResponse = await callLLM({
-        model: 'deepseek-v4-lite',
+        model: MODEL_LITE,
         systemPrompt: SYSTEM_PROMPT + '\n' + diagramPrompt,
         userMessage: `## 画布元素\n${canvasSummary}\n\n## 用户指令\n${utterance}\n\n视觉定位失败，请根据文本上下文匹配最佳元素。输出 JSON。`,
         temperature: 0.3,
