@@ -184,22 +184,92 @@ export function classifyIntent(
     const targetArr = [target];
 
     if (COLOR_RED.test(text)) {
-      return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ style: { fill: '#FFCDD2', stroke: '#F44336' } }] } } as DeltaCommand], utterance: text, reason: '样式修改，本地执行', localAction: 'command' };
+      return {
+        type: 'local',
+        commands: [{
+          action: 'update',
+          targets: targetArr,
+          payload: { elements: [{ style: { fill: '#FFCDD2', stroke: '#F44336' } }] },
+        } as DeltaCommand],
+        utterance: text,
+        reason: '样式修改，本地执行',
+        localAction: 'command',
+      };
     }
     if (COLOR_BLUE.test(text)) {
-      return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ style: { fill: '#BBDEFB', stroke: '#2196F3' } }] } } as DeltaCommand], utterance: text, reason: '样式修改，本地执行', localAction: 'command' };
+      return {
+        type: 'local',
+        commands: [{
+          action: 'update',
+          targets: targetArr,
+          payload: { elements: [{ style: { fill: '#BBDEFB', stroke: '#2196F3' } }] },
+        } as DeltaCommand],
+        utterance: text,
+        reason: '样式修改，本地执行',
+        localAction: 'command',
+      };
     }
     if (COLOR_GREEN.test(text)) {
-      return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ style: { fill: '#C8E6C9', stroke: '#4CAF50' } }] } } as DeltaCommand], utterance: text, reason: '样式修改，本地执行', localAction: 'command' };
+      return {
+        type: 'local',
+        commands: [{
+          action: 'update',
+          targets: targetArr,
+          payload: { elements: [{ style: { fill: '#C8E6C9', stroke: '#4CAF50' } }] },
+        } as DeltaCommand],
+        utterance: text,
+        reason: '样式修改，本地执行',
+        localAction: 'command',
+      };
     }
     if (COLOR_YELLOW.test(text)) {
-      return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ style: { fill: '#FFF9C4', stroke: '#FBC02D' } }] } } as DeltaCommand], utterance: text, reason: '样式修改，本地执行', localAction: 'command' };
+      return {
+        type: 'local',
+        commands: [{
+          action: 'update',
+          targets: targetArr,
+          payload: { elements: [{ style: { fill: '#FFF9C4', stroke: '#FBC02D' } }] },
+        } as DeltaCommand],
+        utterance: text,
+        reason: '样式修改，本地执行',
+        localAction: 'command',
+      };
     }
     if (SIZE_BIGGER.test(text)) {
-      return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ size: { width: 1.3, height: 1.3 }, metadata: { sizeMode: 'scale' } as Record<string, unknown> }] } } as DeltaCommand], utterance: text, reason: '尺寸修改，本地执行', localAction: 'command' };
+      return {
+        type: 'local',
+        commands: [{
+          action: 'update',
+          targets: targetArr,
+          payload: {
+            elements: [{
+              size: { width: 1.3, height: 1.3 },
+              metadata: { sizeMode: 'scale' } as Record<string, unknown>,
+            }],
+          },
+        } as DeltaCommand],
+        utterance: text,
+        reason: '尺寸修改，本地执行',
+        localAction: 'command',
+      };
     }
     if (SIZE_SMALLER.test(text)) {
-      return { type: 'local', commands: [{ action: 'update', targets: targetArr, payload: { elements: [{ size: { width: 0.75, height: 0.75 }, metadata: { sizeMode: 'scale' } as Record<string, unknown> }] } } as DeltaCommand], utterance: text, reason: '尺寸修改，本地执行', localAction: 'command' };
+      return {
+        type: 'local',
+        commands: [{
+          action: 'update',
+          targets: targetArr,
+          payload: {
+            elements: [{
+              size: { width: 0.75, height: 0.75 },
+              metadata: { sizeMode: 'scale' } as Record<string, unknown>,
+            }],
+          },
+        } as DeltaCommand],
+        utterance: text,
+        reason: '尺寸修改，本地执行',
+        localAction: 'command',
+      };
     }
   }
 
