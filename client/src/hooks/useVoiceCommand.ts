@@ -14,19 +14,28 @@ const NOISE_GATE_CONFIDENCE_LOW = 0.5; // confidence < 0.5 → likely noise
 const NOISE_GATE_VOLUME_VERY_LOW = 10; // RMS < 10% → almost certainly noise
 
 export function useVoiceCommand() {
-  const store = useDiagramStore();
+  // Select only stable action references (not the full state object) to avoid
+  // subscribing to every store change (especially 10Hz audioState updates).
+  const setPhase = useDiagramStore((s) => s.setPhase);
+  const setTranscript = useDiagramStore((s) => s.setTranscript);
+  const setInterimTranscript = useDiagramStore((s) => s.setInterimTranscript);
+  const setError = useDiagramStore((s) => s.setError);
+  const setMode = useDiagramStore((s) => s.setMode);
+  const applyCommands = useDiagramStore((s) => s.applyCommands);
   const pendingExportRef = useRef(false);
 
   // Call useSpeechRecognition FIRST so audioLevelRef/noiseStateRef are available
   // when handleFinalResult (defined below) references them via closure.
   // Use a ref to wire the onResult callback since handleFinalResult is defined after this call.
   const onResultRef = useRef<(transcript: string, isFinal: boolean, confidence: number) => void>(undefined);
+  // Stable onError via useCallback (setError is a Zustand stable action reference)
+  const onSpeechError = useCallback((err: string) => { setError(err); }, [setError]);
   const { isListening, micPermission, audioLevel, noiseState, noiseLevel, audioLevelRef, noiseStateRef, start, stop } = useSpeechRecognition({
     lang: 'zh-CN',
     continuous: true,
     interimResults: true,
     onResult: (...args) => onResultRef.current?.(...args),
-    onError: (err) => store.setError(err),
+    onError: onSpeechError,
   });
 
   // Push audio state via useEffect. Uses the stable Zustand setState (not the
@@ -40,7 +49,7 @@ export function useVoiceCommand() {
   const executeRemoteCommand = useCallback(
     async (utterance: string, pipeline: 'text' | 'visual' | 'generate' | 'query') => {
       const state = useDiagramStore.getState();
-      store.setPhase(pipeline === 'visual' ? 'thinking-visual' : 'thinking-text');
+      setPhase(pipeline === 'visual' ? 'thinking-visual' : 'thinking-text');
 
       try {
         let response: LLMResponse;
@@ -62,7 +71,7 @@ export function useVoiceCommand() {
 
         // Execute returned commands with history recording
         if (response.commands && response.commands.length > 0) {
-          store.applyCommands(response.commands, utterance);
+          applyCommands(response.commands, utterance);
         }
 
         // Handle voice reply from AI
@@ -71,24 +80,26 @@ export function useVoiceCommand() {
           speak(response.voiceReply);
         }
 
-        store.setPhase('executing');
-        setTimeout(() => store.setPhase('idle'), 500);
+        setPhase('executing');
+        setTimeout(() => setPhase('idle'), 500);
       } catch (err: any) {
-        store.setError(`指令执行失败: ${err.message}`);
-        store.setPhase('idle');
+        setError(`指令执行失败: ${err.message}`);
+        setPhase('idle');
       }
     },
-    [store]
+    // Stable function refs — never cause re-creation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   const handleFinalResult = useCallback(
     (transcript: string, _isFinal: boolean, confidence: number) => {
       if (!_isFinal) {
-        store.setInterimTranscript(transcript);
+        setInterimTranscript(transcript);
         return;
       }
 
-      store.setInterimTranscript(''); // Clear interim on final
+      setInterimTranscript(''); // Clear interim on final
 
       // ── Layer 3a: Volume + Confidence Joint Noise Gate ──
       const currentLevel = audioLevelRef.current;
@@ -121,7 +132,7 @@ export function useVoiceCommand() {
         pendingExportRef.current = false;
         if (/^(确认|好的|是|确定|可以|行|好|嗯|对)$/.test(cleaned.trim())) {
           import('../services/exportImage').then(({ exportToPNG }) => {
-            exportToPNG().catch((err) => store.setError(`导出失败: ${err.message}`));
+            exportToPNG().catch((err) => setError(`导出失败: ${err.message}`));
           });
         }
         // If not confirmed, just cancel silently and continue processing
@@ -130,15 +141,15 @@ export function useVoiceCommand() {
 
       // Voice-triggered mode switching
       if (/切换.*流程图|流程图模式/.test(cleaned)) {
-        store.setMode('flowchart');
+        setMode('flowchart');
         return;
       }
       if (/切换.*架构图|架构图模式/.test(cleaned)) {
-        store.setMode('architecture');
+        setMode('architecture');
         return;
       }
       if (/切换.*时序图|时序图模式/.test(cleaned)) {
-        store.setMode('sequence');
+        setMode('sequence');
         return;
       }
       // Voice-triggered export — request confirmation
@@ -150,12 +161,12 @@ export function useVoiceCommand() {
         return;
       }
 
-      store.setTranscript(transcript); // show raw to user
+      setTranscript(transcript); // show raw to user
 
       // ---- Multi-command splitting (US-08) ----
       const parts = splitUtterance(cleaned);
       if (parts.length > 1) {
-        store.setPhase('thinking-text');
+        setPhase('thinking-text');
 
         // Pre-flight: classify all sub-commands without executing any.
         // If any needs LLM, delegate the entire utterance — no partial state changes.
@@ -211,8 +222,8 @@ export function useVoiceCommand() {
           }
         }
 
-        store.setPhase('executing');
-        setTimeout(() => store.setPhase('idle'), 500);
+        setPhase('executing');
+        setTimeout(() => setPhase('idle'), 500);
         return;
       }
 
@@ -233,7 +244,7 @@ export function useVoiceCommand() {
         executeRemoteCommand(cleaned, pipeline);
       }
     },
-    [executeRemoteCommand, store]
+    [executeRemoteCommand]
   );
 
   // Wire handleFinalResult to speech recognition (hook called above, before this callback existed)
