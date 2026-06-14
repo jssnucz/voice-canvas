@@ -57,9 +57,29 @@ describe('classifyIntent — undo/redo', () => {
     expect(result.localAction).toBe('undo');
   });
 
+  it('returns localAction=undo for "回退"', () => {
+    const result = classifyIntent('回退', false, false);
+    expect(result.localAction).toBe('undo');
+  });
+
+  it('returns localAction=undo for "撤回"', () => {
+    const result = classifyIntent('撤回', false, false);
+    expect(result.localAction).toBe('undo');
+  });
+
   it('returns localAction=redo for "重做"', () => {
     const result = classifyIntent('重做', false, false);
     expect(result.type).toBe('local');
+    expect(result.localAction).toBe('redo');
+  });
+
+  it('returns localAction=redo for "恢复"', () => {
+    const result = classifyIntent('恢复', false, false);
+    expect(result.localAction).toBe('redo');
+  });
+
+  it('returns localAction=redo for "前进"', () => {
+    const result = classifyIntent('前进', false, false);
     expect(result.localAction).toBe('redo');
   });
 });
@@ -83,9 +103,34 @@ describe('classifyIntent — view controls', () => {
     expect(result.localAction).toBe('fit-view');
   });
 
+  it('returns fit-view for "适合画面"', () => {
+    const result = classifyIntent('适合画面', false, false);
+    expect(result.localAction).toBe('fit-view');
+  });
+
+  it('returns fit-view for "全部显示"', () => {
+    const result = classifyIntent('全部显示', false, false);
+    expect(result.localAction).toBe('fit-view');
+  });
+
+  it('returns fit-view for "全景"', () => {
+    const result = classifyIntent('全景', false, false);
+    expect(result.localAction).toBe('fit-view');
+  });
+
   it('returns clear for "清空"', () => {
     const result = classifyIntent('清空画布', false, false);
     expect(result.type).toBe('local');
+    expect(result.localAction).toBe('clear');
+  });
+
+  it('returns clear for "清除"', () => {
+    const result = classifyIntent('清除全部', false, false);
+    expect(result.localAction).toBe('clear');
+  });
+
+  it('returns clear for "全部删"', () => {
+    const result = classifyIntent('全部删掉', false, false);
     expect(result.localAction).toBe('clear');
   });
 
@@ -103,6 +148,27 @@ describe('classifyIntent — delete', () => {
     expect(result.commands?.[0].action).toBe('delete');
   });
 
+  it('detects "删除" with target', () => {
+    const result = classifyIntent('删除它', true, false);
+    expect(result.localAction).toBe('command');
+    expect(result.commands?.[0].action).toBe('delete');
+  });
+
+  it('detects "移除" with target', () => {
+    const result = classifyIntent('移除它', true, false);
+    expect(result.localAction).toBe('command');
+  });
+
+  it('detects "去掉" with target', () => {
+    const result = classifyIntent('去掉它', true, false);
+    expect(result.localAction).toBe('command');
+  });
+
+  it('detects "删掉" with target', () => {
+    const result = classifyIntent('删掉它', true, false);
+    expect(result.localAction).toBe('command');
+  });
+
   it('falls back to remote-text for delete without target', () => {
     const result = classifyIntent('删掉它', false, false);
     expect(result.type).toBe('remote-text');
@@ -114,6 +180,23 @@ describe('classifyIntent — select', () => {
     const result = classifyIntent('选中订单服务', false, false);
     expect(result.type).toBe('local');
     expect(result.localAction).toBe('select');
+  });
+
+  it('returns localAction=select for "选择"', () => {
+    const result = classifyIntent('选择订单服务', false, false);
+    expect(result.localAction).toBe('select');
+  });
+
+  it('returns localAction=select for "聚焦"', () => {
+    const result = classifyIntent('聚焦到支付模块', false, false);
+    expect(result.localAction).toBe('select');
+  });
+
+  it('"看这个节点" → remote-visual because AMBIGUOUS_REFS beats SELECT_PATTERNS', () => {
+    // "看这个" in SELECT_PATTERNS is shadowed by AMBIGUOUS_REFS (contains "这个") at priority 1.
+    // This test documents the known design trade-off.
+    const result = classifyIntent('看这个节点', false, false);
+    expect(result.type).toBe('remote-visual');
   });
 });
 
