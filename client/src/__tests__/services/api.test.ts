@@ -44,11 +44,11 @@ describe('apiClient.textCommand', () => {
     const result = await apiClient.textCommand(makeCommandRequest(), 'text');
 
     expect(result).toEqual(mockResponse);
-    expect(fetch).toHaveBeenCalledWith('/api/command', {
+    expect(fetch).toHaveBeenCalledWith('/api/command', expect.objectContaining({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...makeCommandRequest(), intent: 'text' }),
-    });
+    }));
   });
 
   it('throws on non-200 with JSON error body', async () => {
@@ -70,6 +70,14 @@ describe('apiClient.textCommand', () => {
 
     await expect(apiClient.textCommand(makeCommandRequest())).rejects.toThrow('Server error: 503');
   });
+
+  it('throws on timeout', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(
+      Object.assign(new Error('The operation was aborted'), { name: 'AbortError' })
+    );
+
+    await expect(apiClient.textCommand(makeCommandRequest())).rejects.toThrow('请求超时');
+  });
 });
 
 describe('apiClient.multimodalCommand', () => {
@@ -84,11 +92,11 @@ describe('apiClient.multimodalCommand', () => {
     const result = await apiClient.multimodalCommand(req);
 
     expect(result).toEqual(mockResponse);
-    expect(fetch).toHaveBeenCalledWith('/api/multimodal', {
+    expect(fetch).toHaveBeenCalledWith('/api/multimodal', expect.objectContaining({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
-    });
+    }));
   });
 
   it('throws on non-200', async () => {

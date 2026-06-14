@@ -258,7 +258,15 @@ function computeInverse(cmd: DeltaCommand, state: Store): DeltaCommand {
   if (cmd.action === 'delete') {
     const ids = resolveTargets(cmd.targets, state);
     const snapshots = ids.map(id => state.elements[id]).filter(Boolean);
-    return makeCreateCommand({ elements: snapshots as CanvasElement[] });
+    // Bug 3 fix: also snapshot edges connected to deleted elements,
+    // otherwise undo-delete restores nodes but loses all their connections.
+    const cascadedEdges = state.edges.filter(
+      e => ids.includes(e.source) || ids.includes(e.target)
+    );
+    return makeCreateCommand({
+      elements: snapshots as CanvasElement[],
+      edges: cascadedEdges,
+    });
   }
 
   if (cmd.action === 'update') {

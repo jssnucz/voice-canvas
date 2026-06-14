@@ -35,15 +35,18 @@ export function cleanUtterance(raw: string): string {
   }
 
   // 2. Strip standalone filler words (between spaces, or at start/end)
-  const fillers = ['嗯', '啊', '额', '诶', '呃', '哦', '那个', '这个', '就是', '然后'];
+  // "然后" intentionally omitted — it's a semantic connector, not a filler
+  const fillers = ['嗯', '啊', '额', '诶', '呃', '哦', '那个', '这个', '就是'];
   for (const w of fillers) {
     text = text.replace(new RegExp(`(^|\\s)${w}(\\s|$)`, 'g'), '$1$2');
   }
   // Collapse double spaces from removed fillers
   text = text.replace(/\s{2,}/g, ' ').trim();
 
-  // 3. Collapse repeated same-word stutters: "画画画一个矩形" → "画一个矩形"
-  text = text.replace(/(\S)\1{2,}/g, '$1');
+  // 3. Collapse CJK character stutters: "画画画一个矩形" → "画一个矩形"
+  // Only target CJK chars (U+4E00–U+9FFF, U+3400–U+4DBF) to avoid compressing
+  // Latin abbreviations like "AAA" or digits like "111".
+  text = text.replace(/([一-鿿㐀-䶿])\1{2,}/g, '$1');
 
   // 4. Collapse repeated short segments: "画一个 画一个矩形" → "画一个矩形"
   text = text.replace(/(.{2,6})\s+\1/g, '$1');

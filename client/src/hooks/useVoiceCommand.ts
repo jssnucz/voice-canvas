@@ -183,9 +183,15 @@ export function useVoiceCommand() {
           return;
         }
 
-        // All local — execute sequentially with localAction routing
-        for (const intent of intents) {
-          dispatchLocalIntent(intent, intent.utterance);
+        // All local — execute sequentially, re-classifying each command
+        // with fresh store state to ensure context (selectedId, lastMentionedId)
+        // reflects changes from previously executed commands (Bug 5 fix).
+        for (const part of parts) {
+          const currentState = useDiagramStore.getState();
+          const freshIntent = classifyIntent(part, !!currentState.selectedId, !!currentState.lastMentionedId);
+          if (freshIntent.type === 'local') {
+            dispatchLocalIntent(freshIntent, part);
+          }
         }
 
         store.setPhase('executing');
