@@ -11,7 +11,9 @@ export function DiagramHistory() {
   const [saving, setSaving] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [backendDown, setBackendDown] = useState(false);
-  const store = useDiagramStore();
+  // Use getState() for imperative store access — no subscription needed.
+  // Previously useDiagramStore() without selector subscribed to every store
+  // change (including 10Hz audioState), causing unnecessary re-renders.
 
   const fetchList = useCallback(async () => {
     if (backendDown) return;
@@ -54,12 +56,12 @@ export function DiagramHistory() {
     try {
       const diagram = await apiClient.getDiagram(id);
       const st = diagram.state;
-      store.clearAll();
+      useDiagramStore.getState().clearAll();
       // Restore mode
-      store.setMode(diagram.mode);
+      useDiagramStore.getState().setMode(diagram.mode);
       // Restore elements one by one
       for (const el of st.elements) {
-        store.addElement({
+        useDiagramStore.getState().addElement({
           id: el.id,
           type: el.type,
           label: el.label,
@@ -71,10 +73,10 @@ export function DiagramHistory() {
       }
       // Restore edges
       for (const edge of st.edges) {
-        store.addEdge(edge);
+        useDiagramStore.getState().addEdge(edge);
       }
-      if (st.selectedId) store.setSelected(st.selectedId);
-      if (st.lastMentionedId) store.setLastMentioned(st.lastMentionedId);
+      if (st.selectedId) useDiagramStore.getState().setSelected(st.selectedId);
+      if (st.lastMentionedId) useDiagramStore.getState().setLastMentioned(st.lastMentionedId);
     } catch (err: any) {
       alert('加载失败: ' + err.message);
     }
