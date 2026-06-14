@@ -114,9 +114,11 @@ describe('POST /api/command', () => {
     expect(systemPrompt.length).toBeGreaterThan(100);
   });
 
-  it('does not retry on JSON parse failure (SyntaxError)', async () => {
+  it('retries once with error feedback on JSON parse failure', async () => {
     mockSelectModel.mockReturnValue('deepseek-v4-flash');
-    mockCallLLM.mockResolvedValueOnce('not valid json {{{');
+    mockCallLLM
+      .mockResolvedValueOnce('not valid json {{{')
+      .mockResolvedValueOnce('not valid either');
 
     const response = await app.inject({
       method: 'POST',
@@ -125,14 +127,18 @@ describe('POST /api/command', () => {
     });
 
     expect(response.statusCode).toBe(422);
-    expect(mockCallLLM).toHaveBeenCalledTimes(1);
+    expect(mockCallLLM).toHaveBeenCalledTimes(2); // retried once with error feedback
   });
 
-  it('does not retry on Zod validation failure', async () => {
+  it('retries once with error feedback on Zod validation failure', async () => {
     mockSelectModel.mockReturnValue('deepseek-v4-flash');
-    mockCallLLM.mockResolvedValueOnce(
-      JSON.stringify({ commands: [{ action: 'INVALID_ACTION', targets: [] }], voiceReply: null })
-    );
+    mockCallLLM
+      .mockResolvedValueOnce(
+        JSON.stringify({ commands: [{ action: 'INVALID_ACTION', targets: [] }], voiceReply: null })
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({ commands: [{ action: 'INVALID_ACTION', targets: [] }], voiceReply: null })
+      );
 
     const response = await app.inject({
       method: 'POST',
@@ -141,7 +147,7 @@ describe('POST /api/command', () => {
     });
 
     expect(response.statusCode).toBe(422);
-    expect(mockCallLLM).toHaveBeenCalledTimes(1);
+    expect(mockCallLLM).toHaveBeenCalledTimes(2); // retried once
   });
 
   it('retries once on network error then returns 422', async () => {

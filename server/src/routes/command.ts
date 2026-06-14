@@ -22,7 +22,7 @@ export const commandRoutes: FastifyPluginAsync = async (server) => {
 ` : '';
 
     const systemPrompt = SYSTEM_PROMPT + '\n' + diagramPrompt + '\n' + queryInstruction;
-    const userMessage = `## 当前画布状态\n${canvasSummary}\n\n## 用户指令\n${utterance}\n\n请输出 JSON 操作指令。`;
+    let userMessage = `## 当前画布状态\n${canvasSummary}\n\n## 用户指令\n${utterance}\n\n请输出 JSON 操作指令。`;
 
     const model = selectModel(intent as 'text' | 'visual' | 'generate' | 'query');
 
@@ -46,16 +46,21 @@ export const commandRoutes: FastifyPluginAsync = async (server) => {
         });
       } catch (err: any) {
         lastError = err;
-        // Only retry on network/API errors, not on JSON parse or Zod validation failures
+        // On JSON parse or Zod validation failure, retry with error feedback
         if (err instanceof SyntaxError || err.name === 'ZodError') {
-          server.log.warn(`LLM response validation failed, not retrying: ${err.message}`);
+          if (attempt === 0) {
+            server.log.warn(`LLM response invalid, retrying with error: ${err.message}`);
+            userMessage = `${userMessage}\n\n## 上次返回格式错误\n${err.message}\n请修正 JSON 格式，确保符合规范。`;
+            continue;
+          }
+          server.log.warn(`LLM response validation failed twice: ${err.message}`);
           break;
         }
         server.log.warn(`LLM attempt ${attempt + 1} failed: ${err.message}`);
       }
     }
 
-    server.log.error(`LLM command failed after 2 attempts: ${lastError?.message}`);
+    server.log.error(`LLM command failed: ${lastError?.message}`);
     return reply.status(422).send({
       error: '指令解析失败，请换个方式描述',
       detail: lastError?.message,
