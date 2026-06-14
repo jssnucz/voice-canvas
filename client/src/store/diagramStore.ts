@@ -286,8 +286,8 @@ function executeCommandLocally(
     const elSpecs = cmd.payload.elements;
     const edgeSpecs = cmd.payload.edges;
 
-    // Collect all new elements first, then set() once to avoid React 18 batching
-    // multiple set() calls which causes only the last update to survive.
+    console.log('[create] elements:', elSpecs?.length ?? 0, 'edges:', edgeSpecs?.length ?? 0, edgeSpecs);
+
     const newElements: Record<string, CanvasElement> = {};
     let lastCreatedId: string | null = null;
 
@@ -295,7 +295,6 @@ function executeCommandLocally(
       for (const spec of elSpecs) {
         if (!spec.type) continue;
         const newEl = state.createElement(spec.type as ElementType, spec.label);
-        // Preserve original ID for undo of delete
         if (spec.id) newEl.id = spec.id;
         if (spec.style) Object.assign(newEl.style, spec.style);
         if (spec.size) newEl.size = { ...newEl.size, ...spec.size };
@@ -311,7 +310,11 @@ function executeCommandLocally(
       for (const edgeSpec of edgeSpecs) {
         const source = edgeSpec.source;
         const target = edgeSpec.target;
-        if (!source || !target) continue;
+        console.log('[create] edge spec:', { source, target, type: edgeSpec.type, label: edgeSpec.label });
+        if (!source || !target) {
+          console.warn('[create] SKIPPING edge: missing source or target', edgeSpec);
+          continue;
+        }
         newEdges.push({
           id: generateId(),
           source,
@@ -323,12 +326,14 @@ function executeCommandLocally(
       }
     }
 
+    console.log('[create] pushing', Object.keys(newElements).length, 'elements +', newEdges.length, 'edges to store');
     if (Object.keys(newElements).length > 0 || newEdges.length > 0) {
       set((s) => ({
         elements: { ...s.elements, ...newElements },
         edges: [...s.edges, ...newEdges],
         lastMentionedId: lastCreatedId || s.lastMentionedId,
       }));
+      console.log('[create] store updated. total edges:', get().edges.length);
     }
     return;
   }
@@ -403,6 +408,7 @@ function executeCommandLocally(
     // Resolve special tokens ('selected', 'lastMentioned') in targets
     const resolvedTargets = resolveTargets(cmd.targets, state);
     let [source, target] = resolvedTargets;
+    console.log('[connect] cmd.targets:', cmd.targets, 'resolved:', resolvedTargets);
 
     // Fallback: read source/target from payload.edges[0] (LLM may put them there)
     const edgeSpec = cmd.payload?.edges?.[0];
@@ -419,6 +425,7 @@ function executeCommandLocally(
       if (!target && edgeTarget) target = edgeTarget;
     }
 
+    console.log('[connect] final source:', source, 'target:', target, 'edgeSpec:', edgeSpec);
     if (source && target) {
       const edgeId = generateId();
       set((s) => ({
