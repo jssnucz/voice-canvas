@@ -24,7 +24,7 @@ const ElementPayloadSchema = z.object({
   position: z.object({ x: z.number(), y: z.number() }).optional(),
   size: z.object({ width: z.number(), height: z.number() }).optional(),
   style: ElementStyleSchema.optional(),
-  metadata: z.any().optional(),
+  metadata: z.record(z.unknown()).optional(),
 });
 
 const EdgePayloadSchema = z.object({

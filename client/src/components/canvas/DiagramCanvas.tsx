@@ -15,6 +15,7 @@ import { useDiagramStore } from '../../store/diagramStore';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { generateId } from '../../utils/id';
+import { makeConnectCommand } from '@shared/types';
 import type { CanvasElement, CanvasEdge } from '@shared/types';
 
 function elementToReactFlowNode(el: CanvasElement): Node {
@@ -94,21 +95,19 @@ export function DiagramCanvas() {
     setSelected(null);
   }, [setSelected]);
 
-  // Bug 1 fix: persist manually-drawn connections to the store
+  // Persist manually-drawn connections via applyCommands (not addEdge)
+  // so they get undo/redo history support.
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
       if (!connection.source || !connection.target) return;
-      // Bug 4 fix: prevent duplicate edges
-      const existing = useDiagramStore.getState().edges.some(
+      const state = useDiagramStore.getState();
+      // Prevent duplicate edges
+      const existing = state.edges.some(
         (e) => e.source === connection.source && e.target === connection.target
       );
       if (existing) return;
-      useDiagramStore.getState().addEdge({
-        id: generateId(),
-        source: connection.source,
-        target: connection.target,
-        type: 'solid',
-      });
+      const cmd = makeConnectCommand(connection.source, connection.target, { type: 'solid' });
+      state.applyCommands([cmd], '手动连线');
     },
     []
   );
