@@ -17,7 +17,7 @@ function RectNode({ data, selected }: NodeProps<RectData>) {
   return (
     <div
       className={`border-2 px-4 py-3 min-w-[140px] text-center ${
-        selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-900' : ''
+        selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white' : ''
       }`}
       style={{
         backgroundColor: style.fill,

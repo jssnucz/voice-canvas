@@ -4,5 +4,5 @@ export default function DashedArrowEdge(props: EdgeProps) {
   const { sourceX, sourceY, targetX, targetY, markerEnd, style } = props;
   const [edgePath] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY });
 
-  return <BaseEdge path={edgePath} markerEnd={markerEnd} style={{ stroke: '#94A3B8', strokeWidth: 2, strokeDasharray: '8 4', ...style }} />;
+  return <BaseEdge path={edgePath} markerEnd={markerEnd} style={{ stroke: '#1a1a1a', strokeWidth: 2, strokeDasharray: '8 4', ...style }} />;
 }

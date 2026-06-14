@@ -13,7 +13,7 @@ function LifelineNode({ data, selected }: NodeProps<LifelineData>) {
     <div className="flex flex-col items-center" style={{ width: 120 }}>
       <div
         className={`border-2 px-3 py-1 text-center text-xs ${
-          selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-900' : ''
+          selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white' : ''
         }`}
         style={{
           backgroundColor: style.fill === 'transparent' ? '#374151' : style.fill,

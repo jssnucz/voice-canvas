@@ -18,7 +18,7 @@ function GatewayNode({ data, selected }: NodeProps<GatewayData>) {
   return (
     <div
       className={`relative flex flex-col items-center justify-center border-2 px-4 py-3 min-w-[140px] ${
-        selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-900' : ''
+        selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white' : ''
       }`}
       style={{
         backgroundColor: style.fill,

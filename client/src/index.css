@@ -15,13 +15,13 @@
 }
 
 .react-flow__controls button {
-  background: #1F2937;
-  border-color: #374151;
-  color: #D1D5DB;
+  background: #ffffff;
+  border-color: #d1d5db;
+  color: #374151;
 }
 
 .react-flow__minimap {
-  background: #111827;
+  background: #f9fafb;
 }
 
 .voice-overlay {

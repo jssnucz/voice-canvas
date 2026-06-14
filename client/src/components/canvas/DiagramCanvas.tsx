@@ -35,7 +35,7 @@ function canvasEdgeToReactFlowEdge(edge: CanvasEdge): Edge {
     source: edge.source,
     target: edge.target,
     type: edge.type === 'dashed' ? 'dashed' : 'solid',
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#94A3B8' },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#1a1a1a' },
     label: edge.label,
   };
 }
@@ -109,14 +109,14 @@ export function DiagramCanvas() {
         maxZoom={2}
         defaultEdgeOptions={{
           type: 'solid',
-          markerEnd: { type: MarkerType.ArrowClosed, color: '#94A3B8' },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#1a1a1a' },
         }}
       >
-        <Background color="#374151" gap={20} />
-        <Controls className="!bg-gray-800 !border-gray-700 !fill-gray-400" />
+        <Background color="#d1d5db" gap={20} />
+        <Controls className="!bg-white !border-gray-300 !fill-gray-600" />
         <MiniMap
-          style={{ background: '#1F2937' }}
-          maskColor="rgba(0,0,0,0.5)"
+          style={{ background: '#f9fafb' }}
+          maskColor="rgba(0,0,0,0.08)"
           nodeColor={(n) => {
             const el = elements[n.id];
             return el?.style.fill || '#374151';

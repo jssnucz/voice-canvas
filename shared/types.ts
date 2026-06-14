@@ -245,17 +245,17 @@ export interface UpdateDiagramBody {
 
 // ========== Default styles per element type ==========
 export const ELEMENT_DEFAULTS: Record<ElementType, { width: number; height: number; fill: string; stroke: string }> = {
-  'rounded-rect': { width: 160, height: 60, fill: '#E8F5E9', stroke: '#4CAF50' },
-  'rect': { width: 160, height: 60, fill: '#E3F2FD', stroke: '#2196F3' },
-  'diamond': { width: 140, height: 80, fill: '#FFF3E0', stroke: '#FF9800' },
-  'cylinder': { width: 140, height: 80, fill: '#F3E5F5', stroke: '#9C27B0' },
-  'ellipse': { width: 160, height: 60, fill: '#E0F7FA', stroke: '#00BCD4' },
-  'actor': { width: 60, height: 100, fill: '#FCE4EC', stroke: '#E91E63' },
-  'queue': { width: 160, height: 50, fill: '#FFF9C4', stroke: '#FBC02D' },
-  'cache': { width: 120, height: 50, fill: '#FFEBEE', stroke: '#F44336' },
-  'gateway': { width: 140, height: 60, fill: '#E8EAF6', stroke: '#3F51B5' },
-  'lifeline': { width: 120, height: 400, fill: 'transparent', stroke: '#9E9E9E' },
-  'sticky-note': { width: 160, height: 80, fill: '#FFF9C4', stroke: '#F9A825' },
+  'rounded-rect': { width: 160, height: 60, fill: '#f0fdf4', stroke: '#1a1a1a' },
+  'rect': { width: 160, height: 60, fill: '#eff6ff', stroke: '#1a1a1a' },
+  'diamond': { width: 140, height: 80, fill: '#fff7ed', stroke: '#1a1a1a' },
+  'cylinder': { width: 140, height: 80, fill: '#faf5ff', stroke: '#1a1a1a' },
+  'ellipse': { width: 160, height: 60, fill: '#ecfeff', stroke: '#1a1a1a' },
+  'actor': { width: 60, height: 100, fill: '#fef2f2', stroke: '#1a1a1a' },
+  'queue': { width: 160, height: 50, fill: '#fefce8', stroke: '#1a1a1a' },
+  'cache': { width: 120, height: 50, fill: '#fff1f2', stroke: '#1a1a1a' },
+  'gateway': { width: 140, height: 60, fill: '#eef2ff', stroke: '#1a1a1a' },
+  'lifeline': { width: 120, height: 400, fill: 'transparent', stroke: '#1a1a1a' },
+  'sticky-note': { width: 160, height: 80, fill: '#fefce8', stroke: '#1a1a1a' },
 };
 
 export const ELEMENT_LABELS: Record<ElementType, string> = {

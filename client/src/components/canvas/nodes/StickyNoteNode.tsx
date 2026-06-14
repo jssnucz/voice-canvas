@@ -12,7 +12,7 @@ function StickyNoteNode({ data, selected }: NodeProps<StickyData>) {
   return (
     <div
       className={`border-2 px-3 py-2 min-w-[120px] text-xs rotate-1 transition-shadow ${
-        selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-900' : ''
+        selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white' : ''
       }`}
       style={{
         backgroundColor: style.fill,

@@ -4,5 +4,5 @@ export default function SolidArrowEdge(props: EdgeProps) {
   const { sourceX, sourceY, targetX, targetY, markerEnd, style } = props;
   const [edgePath] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY });
 
-  return <BaseEdge path={edgePath} markerEnd={markerEnd} style={{ stroke: '#94A3B8', strokeWidth: 2, ...style }} />;
+  return <BaseEdge path={edgePath} markerEnd={markerEnd} style={{ stroke: '#1a1a1a', strokeWidth: 2, ...style }} />;
 }

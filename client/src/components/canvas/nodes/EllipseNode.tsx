@@ -12,7 +12,7 @@ function EllipseNode({ data, selected }: NodeProps<EllipseData>) {
   return (
     <div
       className={`rounded-full border-2 px-6 py-3 min-w-[120px] text-center transition-shadow ${
-        selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-900' : ''
+        selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white' : ''
       }`}
       style={{
         backgroundColor: style.fill,

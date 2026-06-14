@@ -17,7 +17,7 @@ function RoundedRectNode({ data, selected }: NodeProps<RoundedRectData>) {
   return (
     <div
       className={`rounded-xl border-2 px-4 py-3 min-w-[120px] text-center transition-shadow ${
-        selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-900' : ''
+        selected ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white' : ''
       }`}
       style={{
         backgroundColor: style.fill,
