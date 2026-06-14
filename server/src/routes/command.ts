@@ -22,7 +22,13 @@ export const commandRoutes: FastifyPluginAsync = async (server) => {
 ` : '';
 
     const systemPrompt = SYSTEM_PROMPT + '\n' + diagramPrompt + '\n' + queryInstruction;
-    let userMessage = `## 当前画布状态\n${canvasSummary}\n\n## 用户指令\n${utterance}\n\n请输出 JSON 操作指令。`;
+
+    // Reinforce domain knowledge activation for generate intent
+    const knowledgeHint = intent === 'generate'
+      ? '\n\n⚠️ 用户正在生成新图表。如果指令中包含技术名词（协议/框架/平台/中间件等），请激活你对该技术的全部训练知识，准确还原其组件和交互关系。'
+      : '';
+
+    let userMessage = `## 当前画布状态\n${canvasSummary}\n\n## 用户指令\n${utterance}\n\n请输出 JSON 操作指令。${knowledgeHint}`;
 
     const model = selectModel(intent as 'text' | 'visual' | 'generate' | 'query');
 

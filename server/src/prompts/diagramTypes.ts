@@ -11,11 +11,13 @@ export const DIAGRAM_TYPE_PROMPTS: Record<DiagramMode, string> = {
 
   architecture: `
 ## 架构图专用规则
-- 服务用 "rect"，数据库用 "cylinder"，队列用 "queue"
-- 缓存用 "cache"，网关用 "gateway"，外部系统用 "actor"
-- 同步调用用 "solid"，异步消息用 "dashed"
-- 节点间距 150-200px
-- 检测到微服务/分布式/电商架构关键词时，主动补充典型缺失组件并在 voiceReply 中询问
+- 服务/组件用 "rect"，数据库/存储用 "cylinder"，队列/事件总线用 "queue"
+- 缓存/本地存储用 "cache"，网关/代理/协议网关用 "gateway"，外部系统/客户端用 "actor"
+- 同步调用/请求-响应（RPC、HTTP、函数调用）用 "solid"
+- 异步消息/事件推送/流式传输（消息队列、SSE、WebSocket）用 "dashed"
+- 节点间距 150-200px，大图可缩小到 120px
+- 检测到微服务/分布式/电商/协议/框架/中间件/平台等架构关键词时，必须激活领域知识，主动补充典型组件
+- 连线 label 标注协议名或调用方式（如 "JSON-RPC"、"HTTP/2"、"gRPC"、"AMQP"）
 `,
 
   sequence: `
