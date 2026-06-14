@@ -29,11 +29,13 @@ export function useVoiceCommand() {
     onError: (err) => store.setError(err),
   });
 
-  // Push audio state via useEffect, NOT in render body. Calling setAudioState
-  // during render triggers a store update → re-render → infinite loop.
+  // Push audio state via useEffect. Uses the stable Zustand setState (not the
+  // per-render `store` object whose reference changes on every update).
   useEffect(() => {
-    store.setAudioState({ level: audioLevel, state: noiseState, noiseLevel });
-  }, [audioLevel, noiseState, noiseLevel, store]);
+    useDiagramStore.setState({
+      audioState: { level: audioLevel, state: noiseState, noiseLevel },
+    });
+  }, [audioLevel, noiseState, noiseLevel]);
 
   const executeRemoteCommand = useCallback(
     async (utterance: string, pipeline: 'text' | 'visual' | 'generate' | 'query') => {
