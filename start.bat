@@ -60,28 +60,30 @@ echo [ OK ] DEEPSEEK_API_KEY
 REM === Start ===
 echo.
 echo ========================================
-echo   Starting backend server...
-echo   A new window will open - DO NOT close it!
+echo   Starting backend on http://localhost:3001
+echo   Keep the new window open!
 echo ========================================
-start "VoiceCanvas-Server [Keep Open]" cmd /k "title VoiceCanvas Backend ^& cd /d "%~dp0server" ^& echo Starting backend on http://localhost:3001... ^& npx tsx src/index.ts"
+cd /d "%~dp0server"
+start "VoiceCanvas-Server" cmd /k "echo Backend: http://localhost:3001 && echo. && npx tsx src/index.ts"
+cd /d "%~dp0"
 
-echo Waiting for backend to be ready...
+echo Waiting for backend...
 timeout /t 4 /nobreak >nul
 
+echo.
 echo ========================================
-echo   Starting frontend client...
-echo   A new window will open - DO NOT close it!
+echo   Starting frontend on http://localhost:5173
+echo   Keep the new window open!
 echo ========================================
-start "VoiceCanvas-Client [Keep Open]" cmd /k "title VoiceCanvas Frontend ^& cd /d "%~dp0client" ^& npx vite --host"
+cd /d "%~dp0client"
+start "VoiceCanvas-Client" cmd /k "echo Frontend: http://localhost:5173 && echo. && npx vite --host"
+cd /d "%~dp0"
 
 echo.
 echo ========================================
-echo   Both windows are open:
-echo   - Backend  http://localhost:3001
-echo   - Frontend http://localhost:5173
-echo.
-echo   Keep BOTH windows open while using the app!
-echo   Close them when you are done.
+echo   Backend:  http://localhost:3001
+echo   Frontend: http://localhost:5173
+echo   Keep both windows open!
 echo ========================================
 echo.
 pause
