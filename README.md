@@ -19,6 +19,7 @@
 | ⚡ **端侧极速响应** | 25 个高频指令本地执行 <100ms，修改/撤销无需等待 |
 | 🤖 **AI 主动协作** | 架构图场景 AI 建议补全缺失组件 |
 | 📦 **一键导出** | 语音 "导出成图片" → PNG 下载 |
+| 💾 **画布存储** | 语音或手动保存/加载画布，PostgreSQL 连接池（max:50），刷新不丢失 |
 
 ## 技术架构
 
@@ -51,6 +52,7 @@
 | 布局 | Dagre (流程图) / D3-force (架构图) |
 | 大模型 | DeepSeek V4-Pro / V4-Flash |
 | 截图 | html-to-image |
+| 存储 | PostgreSQL + pg (连接池) |
 
 ## 快速开始
 
@@ -72,7 +74,7 @@ npm install
 
 ```bash
 cp server/.env.example server/.env
-# 编辑 server/.env，填入 DEEPSEEK_API_KEY
+# 编辑 server/.env，填入 DEEPSEEK_API_KEY 和 DATABASE_URL
 ```
 
 ### 启动
@@ -111,6 +113,7 @@ cd client && npm run dev
 | 查询 | "当前画布上有哪些服务？"、"这个节点连到了哪些？" |
 | 模式切换 | "切换到架构图模式" |
 | 导出 | "导出成图片" |
+| 存储 | "保存画布"、"加载画布"、"我的图表" |
 
 ### AI 协作
 
@@ -137,10 +140,11 @@ voice-canvas/
 │       └── utils/              # id, layout (Dagre)
 ├── server/                     # 后端 (Fastify)
 │   └── src/
-│       ├── routes/             # /api/command, /api/multimodal
+│       ├── routes/             # /api/command, /api/multimodal, /api/diagrams
 │       ├── services/           # DeepSeek LLM 客户端 (V4-Pro/V4-Flash)
 │       ├── prompts/            # System Prompt + 图表类型 Prompt
 │       ├── validators/         # Zod 校验 LLM 返回
+│       ├── db/                 # PostgreSQL 连接池 + 自动建表
 │       └── utils/              # 画布摘要生成
 └── docs/                       # 设计文档 + 实现计划
 ```
