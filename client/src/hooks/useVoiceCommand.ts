@@ -97,11 +97,6 @@ export function useVoiceCommand() {
         return;
       }
 
-      if (confidence < 0.3) {
-        store.setError('语音识别置信度过低，请重新说一遍');
-        return;
-      }
-
       store.setTranscript(transcript);
 
       // ---- Multi-command splitting (US-08) ----
