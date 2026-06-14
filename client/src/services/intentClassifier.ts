@@ -54,7 +54,7 @@ const SIZE_SMALLER = /变小|小一点/;
 const LABEL_UPDATE_RE = /(?:写上|改成|命名为|标签.*?(?:改为|改成|是)|文字.*?(?:改成|改为|是))(.+)/u;
 
 // Priority 1: Ambiguous references → multimodal
-const AMBIGUOUS_REFS = /那个|这个东西|这东西|那个东西/;
+const AMBIGUOUS_REFS = /那个|这个|这个东西|这东西|那个东西/;
 
 // Priority 2: Diagram generation keywords
 const GENERATE_KEYWORDS = /流程|架构|时序|用例|类图|微服务/;
@@ -243,12 +243,13 @@ export function classifyIntent(
 export function splitUtterance(utterance: string): string[] {
   // Step 0: Strip leading connectors (e.g. "再说一遍" → "说一遍", "再画一个矩形" → "画一个矩形")
   const CONNECTORS = ['然后', '接着', '并且', '同时', '再'];
-  const stripped = utterance.replace(new RegExp(`^(${CONNECTORS.join('|')})\\s*`), '');
+  const connectorRe = new RegExp(`^(${CONNECTORS.join('|')})\\s*`);
+  const stripped = utterance.replace(connectorRe, '');
 
-  // Step 1: Split on Chinese punctuation
+  // Step 1: Split on Chinese punctuation, stripping leading connectors from each part
   const byPunctuation = stripped
     .split(/[，、；]/)
-    .map(s => s.trim())
+    .map(s => s.replace(connectorRe, '').trim())
     .filter(Boolean);
 
   if (byPunctuation.length > 1) return byPunctuation;
@@ -260,7 +261,7 @@ export function splitUtterance(utterance: string): string[] {
     .map(s => s.trim())
     .filter(Boolean);
 
-  if (byConnector.length <= 1) return [utterance];
+  if (byConnector.length <= 1) return stripped ? [stripped] : [utterance];
 
   // Drop standalone connector tokens, keep content parts
   const result: string[] = [];
@@ -269,5 +270,5 @@ export function splitUtterance(utterance: string): string[] {
       result.push(part);
     }
   }
-  return result.length > 1 ? result : [utterance];
+  return result.length > 1 ? result : (stripped ? [stripped] : [utterance]);
 }
