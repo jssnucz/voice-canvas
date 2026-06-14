@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { AudioLevelMonitor, type NoiseState, type NoiseLevel } from '../services/audioLevelMonitor';
 
 interface UseSpeechRecognitionOptions {
   lang?: string;
@@ -7,16 +8,20 @@ interface UseSpeechRecognitionOptions {
   onResult?: (transcript: string, isFinal: boolean, confidence: number) => void;
   onError?: (error: string) => void;
   onPermissionChange?: (state: 'prompt' | 'granted' | 'denied' | 'unsupported') => void;
+  /** Called when sustained silence detected (may trigger auto-restart internally) */
+  onSilence?: (durationMs: number) => void;
+  /** Called when noise gate blocks a result (volume+confidence too low) */
+  onNoiseBlocked?: () => void;
 }
 
 /**
  * Prime microphone permission via getUserMedia before starting speech recognition.
- * Returns 'granted' if successful, or an error string if denied/unsupported.
+ * Enables noise suppression, echo cancellation, and auto gain control (Chrome/Edge).
+ * Returns the MediaStream so callers can attach an AudioLevelMonitor.
  */
 export async function requestMicrophonePermission(): Promise<
-  { ok: true } | { ok: false; error: string; fixHint: string }
+  { ok: true; stream: MediaStream } | { ok: false; error: string; fixHint: string }
 > {
-  // Check if the browser supports getUserMedia
   if (!navigator.mediaDevices?.getUserMedia) {
     return {
       ok: false,
@@ -26,10 +31,14 @@ export async function requestMicrophonePermission(): Promise<
   }
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    // Stop all tracks immediately — we only needed permission, not the actual stream
-    stream.getTracks().forEach((track) => track.stop());
-    return { ok: true };
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        noiseSuppression: true,      // Layer 1: browser-native noise reduction
+        echoCancellation: true,      // Layer 1: acoustic echo cancellation
+        autoGainControl: true,       // Layer 1: automatic gain control
+      },
+    });
+    return { ok: true, stream };
   } catch (err: any) {
     if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
       return {
@@ -68,15 +77,36 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     onResult,
     onError,
     onPermissionChange,
+    onSilence,
+    onNoiseBlocked,
   } = options;
 
   const [isListening, setIsListening] = useState(false);
   const [micPermission, setMicPermission] = useState<'prompt' | 'granted' | 'denied' | 'unsupported'>('prompt');
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [noiseState, setNoiseState] = useState<NoiseState>('silence');
+  const [noiseLevel, setNoiseLevel] = useState<NoiseLevel>('low');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const monitorRef = useRef<AudioLevelMonitor | null>(null);
   const onResultRef = useRef(onResult);
   const onErrorRef = useRef(onError);
+  const onSilenceRef = useRef(onSilence);
+  const onNoiseBlockedRef = useRef(onNoiseBlocked);
   onResultRef.current = onResult;
   onErrorRef.current = onError;
+  onSilenceRef.current = onSilence;
+  onNoiseBlockedRef.current = onNoiseBlocked;
+
+  // Cleanup audio resources on unmount
+  useEffect(() => {
+    return () => {
+      monitorRef.current?.destroy();
+      monitorRef.current = null;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, []);
 
   // Check initial permission state
   useEffect(() => {
@@ -89,7 +119,6 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
           onPermissionChange?.(status.state as typeof micPermission);
         });
       }).catch(() => {
-        // permissions.query may not be supported for microphone
         setMicPermission('prompt');
       });
     }
@@ -131,6 +160,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       const avgConfidence = resultCount > 0 ? confidence / resultCount : 1;
 
       if (finalTranscript) {
+        // Pass raw result — noise gate is in useVoiceCommand.handleFinalResult
         onResultRef.current?.(finalTranscript, true, avgConfidence);
       } else if (interim) {
         onResultRef.current?.(interim, false, 1);
@@ -138,7 +168,6 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     };
 
     recognition.onerror = (event: any) => {
-      // Map common Web Speech API errors to user-friendly messages with fix hints
       const errorMap: Record<string, string> = {
         'not-allowed': '麦克风权限被拒绝 — 请点击地址栏左侧的锁图标，开启麦克风权限后刷新页面',
         'audio-capture': '无法访问麦克风 — 请检查麦克风是否已连接，或被其他应用占用',
@@ -158,7 +187,20 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       setIsListening(false);
     };
 
+    // Layer 3b: Silence auto-restart — when Web Speech API stops due to prolonged silence,
+    // automatically restart recognition so the user doesn't have to manually re-enable.
     recognition.onend = () => {
+      const monitor = monitorRef.current;
+      const stream = streamRef.current;
+      // Only auto-restart if we still have an active stream and were listening
+      if (monitor?.isAvailable && stream?.active && recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+          return; // Successfully restarted — don't update isListening
+        } catch {
+          // If restart fails (e.g. already started), just fall through to setListening(false)
+        }
+      }
       setIsListening(false);
     };
 
@@ -175,8 +217,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       return;
     }
 
-    // Prime microphone permission via getUserMedia first
-    // This triggers the browser's permission dialog BEFORE we start recognition
+    // Acquire microphone stream (with noise suppression constraints)
     if (micPermission !== 'granted') {
       const result = await requestMicrophonePermission();
       if (!result.ok) {
@@ -187,7 +228,53 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       }
       setMicPermission('granted');
       onPermissionChange?.('granted');
+
+      // Keep stream alive for AudioLevelMonitor (was previously stopped immediately)
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      streamRef.current = result.stream;
     }
+
+    // Ensure we have an active stream (re-acquire if previous was stopped)
+    if (!streamRef.current || !streamRef.current.active) {
+      const result = await requestMicrophonePermission();
+      if (!result.ok) {
+        onErrorRef.current?.(`${result.error}。${result.fixHint}`);
+        return;
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      streamRef.current = result.stream;
+    }
+
+    // Create or recreate AudioLevelMonitor
+    if (monitorRef.current) {
+      monitorRef.current.destroy();
+    }
+    monitorRef.current = new AudioLevelMonitor(streamRef.current, {
+      onLevel: (level, state) => {
+        setAudioLevel(level);
+        setNoiseState(state);
+      },
+      onSilence: (durationMs) => {
+        onSilenceRef.current?.(durationMs);
+        // Layer 3b: sustained silence → auto-restart recognition
+        if (durationMs >= 5000 && recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+            recognitionRef.current.start();
+          } catch {
+            // Ignore restart errors
+          }
+        }
+      },
+      onNoiseLevelChange: (level) => {
+        setNoiseLevel(level);
+      },
+    });
+    monitorRef.current.start();
 
     try {
       recognitionRef.current.start();
@@ -201,12 +288,16 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
+    monitorRef.current?.stop();
     setIsListening(false);
   }, []);
 
   return {
     isListening,
     micPermission,
+    audioLevel,
+    noiseState,
+    noiseLevel,
     start,
     stop,
   };

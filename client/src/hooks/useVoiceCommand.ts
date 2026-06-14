@@ -4,13 +4,21 @@ import { useSpeechRecognition } from './useSpeechRecognition';
 import { classifyIntent, splitUtterance, type ClassifiedIntent } from '../services/intentClassifier';
 import { apiClient } from '../services/api';
 import { buildDiagramState } from '../services/stateSerializer';
-import { cleanUtterance } from '../services/utteranceCleaner';
+import { cleanUtterance, isUtteranceNoise } from '../services/utteranceCleaner';
 import { makeConnectCommand } from '@shared/types';
 import type { LLMResponse, CanvasElement } from '@shared/types';
+import type { NoiseState } from '../services/audioLevelMonitor';
+
+// Layer 3a: volume + confidence joint noise gate thresholds
+const NOISE_GATE_VOLUME_LOW = 20;   // RMS < 20% → likely not speech
+const NOISE_GATE_CONFIDENCE_LOW = 0.5; // confidence < 0.5 → likely noise
+const NOISE_GATE_VOLUME_VERY_LOW = 10; // RMS < 10% → almost certainly noise
 
 export function useVoiceCommand() {
   const store = useDiagramStore();
   const pendingExportRef = useRef(false);
+  const audioLevelRef = useRef(0);          // latest audio level (updated by onLevel callback)
+  const noiseStateRef = useRef<NoiseState>('silence');
 
   const executeRemoteCommand = useCallback(
     async (utterance: string, pipeline: 'text' | 'visual' | 'generate' | 'query') => {
@@ -65,9 +73,31 @@ export function useVoiceCommand() {
 
       store.setInterimTranscript(''); // Clear interim on final
 
+      // ── Layer 3a: Volume + Confidence Joint Noise Gate ──
+      const currentLevel = audioLevelRef.current;
+      const isNoise = isUtteranceNoise(transcript);
+
+      // Rule A: Low volume + low confidence → almost certainly noise
+      if (currentLevel < NOISE_GATE_VOLUME_LOW && confidence < NOISE_GATE_CONFIDENCE_LOW) {
+        console.log('[noise-gate] blocked: low volume + low confidence',
+          { level: currentLevel, confidence });
+        return;
+      }
+
+      // Rule B: Very low volume + noise text pattern → discard
+      if (currentLevel < NOISE_GATE_VOLUME_VERY_LOW && isNoise) {
+        console.log('[noise-gate] blocked: very low volume + noise text',
+          { level: currentLevel, transcript: transcript.slice(0, 30) });
+        return;
+      }
+
+      // Safety: high confidence always passes (regardless of volume)
+      // Safety: high volume (≥20) always passes (regardless of confidence)
+      // These are implicit — they fall through to the code below.
+
       // Clean voice-to-text noise: filler words, stutters, repetitions
       const cleaned = cleanUtterance(transcript);
-      if (!cleaned) return; // everything was noise
+      if (!cleaned) return; // everything was noise after cleaning
 
       // Pending export confirmation — check BEFORE any other command processing
       if (pendingExportRef.current) {
@@ -183,7 +213,7 @@ export function useVoiceCommand() {
     [executeRemoteCommand, store]
   );
 
-  const { isListening, micPermission, start, stop } = useSpeechRecognition({
+  const { isListening, micPermission, audioLevel, noiseState, noiseLevel, start, stop } = useSpeechRecognition({
     lang: 'zh-CN',
     continuous: true,
     interimResults: true,
@@ -191,7 +221,14 @@ export function useVoiceCommand() {
     onError: (err) => store.setError(err),
   });
 
-  return { isListening, micPermission, start, stop };
+  // Keep refs in sync for the noise gate (refs avoid stale closures in handleFinalResult)
+  audioLevelRef.current = audioLevel;
+  noiseStateRef.current = noiseState;
+
+  // Push audio state to store for VoiceOverlay UI (precise selector → only VoiceOverlay re-renders)
+  store.setAudioState({ level: audioLevel, state: noiseState, noiseLevel });
+
+  return { isListening, micPermission, audioLevel, noiseState, start, stop };
 }
 
 // Dispatch a single local intent using its localAction discriminator (not reason string matching).

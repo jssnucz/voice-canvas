@@ -10,6 +10,9 @@ import type {
 } from '@shared/types';
 import { ELEMENT_DEFAULTS, makeCreateCommand, makeDeleteCommand, makeUpdateCommand, makeMoveCommand, makeQueryCommand } from '@shared/types';
 import { generateId } from '../utils/id';
+import type { NoiseState, NoiseLevel } from '../services/audioLevelMonitor';
+
+type AudioNoiseState = { level: number; state: NoiseState; noiseLevel: NoiseLevel };
 
 const initialData = {
   mode: 'flowchart' as DiagramMode,
@@ -24,6 +27,7 @@ const initialData = {
   interimTranscript: '',
   error: null as string | null,
   theme: 'dark' as const,
+  audioState: { level: 0, state: 'silence' as NoiseState, noiseLevel: 'low' as NoiseLevel },
 };
 
 export { initialData as initialState };
@@ -44,6 +48,7 @@ interface Store {
   interimTranscript: string;
   error: string | null;
   theme: 'light' | 'dark' | 'blue-gray';
+  audioState: AudioNoiseState;
 
   // --- Actions ---
   setMode: (mode: DiagramMode) => void;
@@ -84,6 +89,7 @@ export const useDiagramStore = create<Store>((set, get) => ({
   setTranscript: (transcript) => set({ transcript }),
   setInterimTranscript: (interimTranscript) => set({ interimTranscript }),
   setError: (error) => set({ error }),
+  setAudioState: (audioState: AudioNoiseState) => set({ audioState }),
   setSelected: (selectedId) => set({ selectedId }),
   setLastMentioned: (lastMentionedId) => set({ lastMentionedId }),
 
@@ -286,8 +292,6 @@ function executeCommandLocally(
     const elSpecs = cmd.payload.elements;
     const edgeSpecs = cmd.payload.edges;
 
-    console.log('[create] elements:', elSpecs?.length ?? 0, 'edges:', edgeSpecs?.length ?? 0, edgeSpecs);
-
     const newElements: Record<string, CanvasElement> = {};
     let lastCreatedId: string | null = null;
 
@@ -310,11 +314,7 @@ function executeCommandLocally(
       for (const edgeSpec of edgeSpecs) {
         const source = edgeSpec.source;
         const target = edgeSpec.target;
-        console.log('[create] edge spec:', { source, target, type: edgeSpec.type, label: edgeSpec.label });
-        if (!source || !target) {
-          console.warn('[create] SKIPPING edge: missing source or target', edgeSpec);
-          continue;
-        }
+        if (!source || !target) continue;
         newEdges.push({
           id: generateId(),
           source,
@@ -326,14 +326,12 @@ function executeCommandLocally(
       }
     }
 
-    console.log('[create] pushing', Object.keys(newElements).length, 'elements +', newEdges.length, 'edges to store');
     if (Object.keys(newElements).length > 0 || newEdges.length > 0) {
       set((s) => ({
         elements: { ...s.elements, ...newElements },
         edges: [...s.edges, ...newEdges],
         lastMentionedId: lastCreatedId || s.lastMentionedId,
       }));
-      console.log('[create] store updated. total edges:', get().edges.length);
     }
     return;
   }
@@ -408,7 +406,6 @@ function executeCommandLocally(
     // Resolve special tokens ('selected', 'lastMentioned') in targets
     const resolvedTargets = resolveTargets(cmd.targets, state);
     let [source, target] = resolvedTargets;
-    console.log('[connect] cmd.targets:', cmd.targets, 'resolved:', resolvedTargets);
 
     // Fallback: read source/target from payload.edges[0] (LLM may put them there)
     const edgeSpec = cmd.payload?.edges?.[0];
@@ -425,7 +422,6 @@ function executeCommandLocally(
       if (!target && edgeTarget) target = edgeTarget;
     }
 
-    console.log('[connect] final source:', source, 'target:', target, 'edgeSpec:', edgeSpec);
     if (source && target) {
       const edgeId = generateId();
       set((s) => ({
