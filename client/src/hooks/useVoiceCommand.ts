@@ -231,8 +231,14 @@ export function useVoiceCommand() {
   audioLevelRef.current = audioLevel;
   noiseStateRef.current = noiseState;
 
-  // Push audio state to store for VoiceOverlay UI (precise selector → only VoiceOverlay re-renders)
-  store.setAudioState({ level: audioLevel, state: noiseState, noiseLevel });
+  // Throttled store push: only on state transitions, max every 500ms.
+  // Avoids 10Hz Zustand subscriber checks that degrade page performance.
+  const lastPushRef = useRef<{ state: string; time: number }>({ state: '', time: 0 });
+  const now = Date.now();
+  if (noiseState !== lastPushRef.current.state || now - lastPushRef.current.time > 500) {
+    lastPushRef.current = { state: noiseState, time: now };
+    store.setAudioState({ level: audioLevel, state: noiseState, noiseLevel });
+  }
 
   return { isListening, micPermission, audioLevel, noiseState, start, stop };
 }
