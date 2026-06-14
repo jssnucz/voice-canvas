@@ -10,19 +10,22 @@ export function DiagramHistory() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveName, setSaveName] = useState('');
+  const [backendDown, setBackendDown] = useState(false);
   const store = useDiagramStore();
 
   const fetchList = useCallback(async () => {
+    if (backendDown) return;
     setLoading(true);
     try {
       const list = await apiClient.listDiagrams();
       setDiagrams(list);
+      setBackendDown(false);
     } catch {
-      // Backend may not be running
+      setBackendDown(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [backendDown]);
 
   useEffect(() => {
     if (open) fetchList();
@@ -124,11 +127,11 @@ export function DiagramHistory() {
                 onKeyDown={(e) => e.key === 'Enter' && handleSave()}
                 placeholder="图表名称（可选）"
                 className="flex-1 bg-gray-700 text-gray-200 text-sm px-2 py-1.5 rounded border border-gray-600 focus:outline-none focus:border-blue-500"
-                disabled={saving}
+                disabled={saving || backendDown}
               />
               <button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || backendDown}
                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white text-sm rounded transition-colors shrink-0"
               >
                 {saving ? '...' : '保存'}
@@ -141,7 +144,13 @@ export function DiagramHistory() {
             {loading && (
               <div className="p-4 text-center text-gray-500 text-sm">加载中...</div>
             )}
-            {!loading && diagrams.length === 0 && (
+            {backendDown && (
+              <div className="p-4 text-center text-gray-400 text-sm">
+                ⚠️ 后端未启动<br />
+                <span className="text-xs text-gray-500">请先运行 server：cd server && npm run dev</span>
+              </div>
+            )}
+            {!loading && !backendDown && diagrams.length === 0 && (
               <div className="p-4 text-center text-gray-500 text-sm">
                 暂无保存的图表<br />
                 <span className="text-xs text-gray-600">输入名称后点击"保存"</span>
