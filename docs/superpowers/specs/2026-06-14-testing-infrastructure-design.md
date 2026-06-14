@@ -388,6 +388,7 @@ Phase 5: 验证
 
 ---
 
-*设计文档版本：v1.1*
+*设计文档版本：v1.2*
 *日期：2026-06-14*
-*修订：review 反馈 — 补 callMultimodalLLM 用例、补 API 路由集成测试、修 layout 间距断言、修 speechSynthesis mock 策略、pin vitest 版本*
+*修订 v1.1：review 反馈 — 补 callMultimodalLLM 用例、补 API 路由集成测试、修 layout 间距断言、修 speechSynthesis mock 策略、pin vitest 版本*
+*修订 v1.2：实现后同步 — 路由集成测试已实现（§4.13），speechSynthesis mock 含 SpeechSynthesisUtterance 构造函数，vitest.workspace.ts 已迁移至 vitest.config.ts test.projects*
