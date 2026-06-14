@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useDiagramStore } from '../store/diagramStore';
 import { useSpeechRecognition } from './useSpeechRecognition';
 import { classifyIntent, splitUtterance, type ClassifiedIntent } from '../services/intentClassifier';
@@ -16,6 +16,24 @@ const NOISE_GATE_VOLUME_VERY_LOW = 10; // RMS < 10% → almost certainly noise
 export function useVoiceCommand() {
   const store = useDiagramStore();
   const pendingExportRef = useRef(false);
+
+  // Call useSpeechRecognition FIRST so audioLevelRef/noiseStateRef are available
+  // when handleFinalResult (defined below) references them via closure.
+  // Use a ref to wire the onResult callback since handleFinalResult is defined after this call.
+  const onResultRef = useRef<(transcript: string, isFinal: boolean, confidence: number) => void>(undefined);
+  const { isListening, micPermission, audioLevel, noiseState, noiseLevel, audioLevelRef, noiseStateRef, start, stop } = useSpeechRecognition({
+    lang: 'zh-CN',
+    continuous: true,
+    interimResults: true,
+    onResult: (...args) => onResultRef.current?.(...args),
+    onError: (err) => store.setError(err),
+  });
+
+  // Push audio state via useEffect, NOT in render body. Calling setAudioState
+  // during render triggers a store update → re-render → infinite loop.
+  useEffect(() => {
+    store.setAudioState({ level: audioLevel, state: noiseState, noiseLevel });
+  }, [audioLevel, noiseState, noiseLevel, store]);
 
   const executeRemoteCommand = useCallback(
     async (utterance: string, pipeline: 'text' | 'visual' | 'generate' | 'query') => {
@@ -216,18 +234,8 @@ export function useVoiceCommand() {
     [executeRemoteCommand, store]
   );
 
-  const { isListening, micPermission, audioLevel, noiseState, noiseLevel, audioLevelRef, noiseStateRef, start, stop } = useSpeechRecognition({
-    lang: 'zh-CN',
-    continuous: true,
-    interimResults: true,
-    onResult: handleFinalResult,
-    onError: (err) => store.setError(err),
-  });
-
-  // Push audio state to store only on noiseState transitions.
-  // audioLevel/noiseState/noiseLevel are now React-state-transition values,
-  // not per-sample high-frequency updates. Safe to push on every render.
-  store.setAudioState({ level: audioLevel, state: noiseState, noiseLevel });
+  // Wire handleFinalResult to speech recognition (hook called above, before this callback existed)
+  onResultRef.current = handleFinalResult;
 
   return { isListening, micPermission, audioLevel, noiseState, start, stop };
 }
