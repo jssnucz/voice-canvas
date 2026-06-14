@@ -4,6 +4,7 @@ import { useSpeechRecognition } from './useSpeechRecognition';
 import { classifyIntent, splitUtterance, type ClassifiedIntent } from '../services/intentClassifier';
 import { apiClient } from '../services/api';
 import { buildDiagramState } from '../services/stateSerializer';
+import { cleanUtterance } from '../services/utteranceCleaner';
 import type { LLMResponse, CanvasElement } from '@shared/types';
 
 export function useVoiceCommand() {
@@ -63,10 +64,14 @@ export function useVoiceCommand() {
 
       store.setInterimTranscript(''); // Clear interim on final
 
+      // Clean voice-to-text noise: filler words, stutters, repetitions
+      const cleaned = cleanUtterance(transcript);
+      if (!cleaned) return; // everything was noise
+
       // Pending export confirmation — check BEFORE any other command processing
       if (pendingExportRef.current) {
         pendingExportRef.current = false;
-        if (/^(确认|好的|是|确定|可以|行|好|嗯|对)$/.test(transcript.trim())) {
+        if (/^(确认|好的|是|确定|可以|行|好|嗯|对)$/.test(cleaned.trim())) {
           import('../services/exportImage').then(({ exportToPNG }) => {
             exportToPNG().catch((err) => store.setError(`导出失败: ${err.message}`));
           });
@@ -76,20 +81,20 @@ export function useVoiceCommand() {
       }
 
       // Voice-triggered mode switching
-      if (/切换.*流程图|流程图模式/.test(transcript)) {
+      if (/切换.*流程图|流程图模式/.test(cleaned)) {
         store.setMode('flowchart');
         return;
       }
-      if (/切换.*架构图|架构图模式/.test(transcript)) {
+      if (/切换.*架构图|架构图模式/.test(cleaned)) {
         store.setMode('architecture');
         return;
       }
-      if (/切换.*时序图|时序图模式/.test(transcript)) {
+      if (/切换.*时序图|时序图模式/.test(cleaned)) {
         store.setMode('sequence');
         return;
       }
       // Voice-triggered export — request confirmation
-      if (/导出|保存.*图片|下载.*图/.test(transcript)) {
+      if (/导出|保存.*图片|下载.*图/.test(cleaned)) {
         pendingExportRef.current = true;
         import('../services/speechSynthesis').then(({ speak }) => {
           speak('确认导出图片吗？');
@@ -97,10 +102,10 @@ export function useVoiceCommand() {
         return;
       }
 
-      store.setTranscript(transcript);
+      store.setTranscript(transcript); // show raw to user
 
       // ---- Multi-command splitting (US-08) ----
-      const parts = splitUtterance(transcript);
+      const parts = splitUtterance(cleaned);
       if (parts.length > 1) {
         store.setPhase('thinking-text');
 
@@ -139,11 +144,11 @@ export function useVoiceCommand() {
         const allLocal = intents.every(i => i.type === 'local');
         if (!allLocal) {
           // Delegate entire original utterance to LLM — no state was modified
-          const fallbackIntent = classifyIntent(transcript, simHasSelected, simHasLastMentioned);
+          const fallbackIntent = classifyIntent(cleaned, simHasSelected, simHasLastMentioned);
           const pipeline = fallbackIntent.type === 'remote-generate'
             ? 'generate' : fallbackIntent.type === 'remote-query'
             ? 'query' : 'text';
-          executeRemoteCommand(transcript, pipeline);
+          executeRemoteCommand(cleaned, pipeline);
           return;
         }
 
@@ -159,10 +164,10 @@ export function useVoiceCommand() {
 
       const state = useDiagramStore.getState();
       const hasSelectedTarget = !!state.selectedId;
-      const intent = classifyIntent(transcript, hasSelectedTarget, !!state.lastMentionedId);
+      const intent = classifyIntent(cleaned, hasSelectedTarget, !!state.lastMentionedId);
 
       if (intent.type === 'local') {
-        dispatchLocalIntent(intent, transcript);
+        dispatchLocalIntent(intent, cleaned);
       } else {
         const pipeline = intent.type === 'remote-visual'
           ? 'visual'
@@ -171,7 +176,7 @@ export function useVoiceCommand() {
           : intent.type === 'remote-query'
           ? 'query'
           : 'text';
-        executeRemoteCommand(transcript, pipeline);
+        executeRemoteCommand(cleaned, pipeline);
       }
     },
     [executeRemoteCommand, store]
