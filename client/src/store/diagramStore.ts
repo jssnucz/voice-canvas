@@ -285,6 +285,12 @@ function executeCommandLocally(
   if (cmd.action === 'create') {
     const elSpecs = cmd.payload.elements;
     const edgeSpecs = cmd.payload.edges;
+
+    // Collect all new elements first, then set() once to avoid React 18 batching
+    // multiple set() calls which causes only the last update to survive.
+    const newElements: Record<string, CanvasElement> = {};
+    let lastCreatedId: string | null = null;
+
     if (elSpecs) {
       for (const spec of elSpecs) {
         if (!spec.type) continue;
@@ -295,32 +301,34 @@ function executeCommandLocally(
         if (spec.size) newEl.size = { ...newEl.size, ...spec.size };
         if (spec.position) newEl.position = spec.position;
         if (spec.voiceAliases) newEl.voiceAliases = spec.voiceAliases;
-        set((s) => ({
-          elements: { ...s.elements, [newEl.id]: newEl },
-          lastMentionedId: newEl.id,
-        }));
+        newElements[newEl.id] = newEl;
+        lastCreatedId = newEl.id;
       }
     }
+
+    const newEdges: CanvasEdge[] = [];
     if (edgeSpecs) {
       for (const edgeSpec of edgeSpecs) {
         const source = edgeSpec.source;
         const target = edgeSpec.target;
         if (!source || !target) continue;
-        const edgeId = generateId();
-        set((s) => ({
-          edges: [
-            ...s.edges,
-            {
-              id: edgeId,
-              source,
-              target,
-              type: edgeSpec.type || 'solid',
-              label: edgeSpec.label,
-              style: edgeSpec.style,
-            },
-          ],
-        }));
+        newEdges.push({
+          id: generateId(),
+          source,
+          target,
+          type: (edgeSpec.type || 'solid') as 'solid' | 'dashed',
+          label: edgeSpec.label,
+          style: edgeSpec.style,
+        });
       }
+    }
+
+    if (Object.keys(newElements).length > 0 || newEdges.length > 0) {
+      set((s) => ({
+        elements: { ...s.elements, ...newElements },
+        edges: [...s.edges, ...newEdges],
+        lastMentionedId: lastCreatedId || s.lastMentionedId,
+      }));
     }
     return;
   }
@@ -330,30 +338,33 @@ function executeCommandLocally(
 
     if (cmd.action === 'update') {
       const patches = cmd.payload?.elements || [];
-      for (let i = 0; i < ids.length; i++) {
-        const id = ids[i];
-        const el = state.elements[id];
-        const patch = patches[i % patches.length];
-        if (!el || !patch) continue;
-        set((s) => ({
-          elements: {
-            ...s.elements,
-            [id]: {
-              ...s.elements[id],
+      if (ids.length > 0 && patches.length > 0) {
+        set((s) => {
+          const updatedElements = { ...s.elements };
+          for (let i = 0; i < ids.length; i++) {
+            const id = ids[i];
+            const el = updatedElements[id];
+            const patch = patches[i % patches.length];
+            if (!el || !patch) continue;
+            updatedElements[id] = {
+              ...el,
               ...patch,
               id,
-              style: patch.style ? { ...s.elements[id].style, ...patch.style } : s.elements[id].style,
+              style: patch.style ? { ...el.style, ...patch.style } : el.style,
               size: patch.size ? (
                 patch.metadata?.sizeMode === 'scale'
-                  ? { width: s.elements[id].size.width * patch.size.width, height: s.elements[id].size.height * patch.size.height }
-                  : { ...s.elements[id].size, ...patch.size }
-              ) : s.elements[id].size,
-              position: patch.position ? patch.position : s.elements[id].position,
-              voiceAliases: patch.voiceAliases ? patch.voiceAliases : s.elements[id].voiceAliases,
-            },
-          },
-          lastMentionedId: id,
-        }));
+                  ? { width: el.size.width * patch.size.width, height: el.size.height * patch.size.height }
+                  : { ...el.size, ...patch.size }
+              ) : el.size,
+              position: patch.position ? patch.position : el.position,
+              voiceAliases: patch.voiceAliases ? patch.voiceAliases : el.voiceAliases,
+            };
+          }
+          return {
+            elements: updatedElements,
+            lastMentionedId: ids[ids.length - 1],
+          };
+        });
       }
     } else if (cmd.action === 'delete') {
       set((s) => {
@@ -370,17 +381,18 @@ function executeCommandLocally(
       });
     } else if (cmd.action === 'move') {
       const patches = cmd.payload?.elements || [];
-      for (let i = 0; i < ids.length; i++) {
-        const id = ids[i];
-        const patch = patches[i % patches.length];
-        if (!patch?.position) continue;
-        const { x, y } = patch.position;
+      if (ids.length > 0 && patches.length > 0) {
         set((s) => {
-          const el = s.elements[id];
-          if (!el) return s;
-          return {
-            elements: { ...s.elements, [id]: { ...el, position: { x, y } } },
-          };
+          const movedElements = { ...s.elements };
+          for (let i = 0; i < ids.length; i++) {
+            const id = ids[i];
+            const patch = patches[i % patches.length];
+            if (!patch?.position) continue;
+            const el = movedElements[id];
+            if (!el) continue;
+            movedElements[id] = { ...el, position: { x: patch.position.x, y: patch.position.y } };
+          }
+          return { elements: movedElements };
         });
       }
     }
