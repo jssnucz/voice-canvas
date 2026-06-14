@@ -6,12 +6,15 @@ import ReactFlow, {
   type Node,
   type Edge,
   type OnNodesChange,
+  type OnConnect,
+  type Connection,
   MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useDiagramStore } from '../../store/diagramStore';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
+import { generateId } from '../../utils/id';
 import type { CanvasElement, CanvasEdge } from '@shared/types';
 
 function elementToReactFlowNode(el: CanvasElement): Node {
@@ -35,8 +38,13 @@ function canvasEdgeToReactFlowEdge(edge: CanvasEdge): Edge {
     source: edge.source,
     target: edge.target,
     type: edge.type === 'dashed' ? 'dashed' : 'solid',
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#1a1a1a' },
+    markerEnd: { type: MarkerType.ArrowClosed, color: edge.style?.stroke || '#1a1a1a' },
     label: edge.label,
+    // Bug 2 fix: preserve edge style (stroke color, stroke width)
+    style: edge.style ? {
+      stroke: edge.style.stroke,
+      strokeWidth: edge.style.strokeWidth,
+    } : undefined,
   };
 }
 
@@ -86,6 +94,58 @@ export function DiagramCanvas() {
     setSelected(null);
   }, [setSelected]);
 
+  // Bug 1 fix: persist manually-drawn connections to the store
+  const onConnect: OnConnect = useCallback(
+    (connection: Connection) => {
+      if (!connection.source || !connection.target) return;
+      // Bug 4 fix: prevent duplicate edges
+      const existing = useDiagramStore.getState().edges.some(
+        (e) => e.source === connection.source && e.target === connection.target
+      );
+      if (existing) return;
+      useDiagramStore.getState().addEdge({
+        id: generateId(),
+        source: connection.source,
+        target: connection.target,
+        type: 'solid',
+      });
+    },
+    []
+  );
+
+  // Bug 6 fix: allow clicking edges to select them, Del/Backspace to delete
+  const onEdgeClick = useCallback(
+    (_: React.MouseEvent, edge: Edge) => {
+      setSelected(edge.id);
+    },
+    [setSelected]
+  );
+
+  // Keyboard shortcut: Delete / Backspace removes selected edge
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        const state = useDiagramStore.getState();
+        if (state.selectedId) {
+          // Check if selected is an edge
+          const isEdge = state.edges.some((e) => e.id === state.selectedId);
+          if (isEdge) {
+            state.deleteEdge(state.selectedId!);
+            state.setSelected(null);
+            return;
+          }
+          // Check if selected is an element
+          const isElement = state.selectedId in state.elements;
+          if (isElement) {
+            state.deleteElement(state.selectedId!);
+            return;
+          }
+        }
+      }
+    },
+    []
+  );
+
   const isVisualProcessing = phase === 'thinking-visual';
 
   return (
@@ -93,6 +153,9 @@ export function DiagramCanvas() {
       className={`w-full h-full transition-all duration-300 ${
         isVisualProcessing ? 'opacity-70 grayscale-[30%]' : ''
       }`}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      style={{ outline: 'none' }}
     >
       <ReactFlow
         nodes={rfNodes}
@@ -100,6 +163,8 @@ export function DiagramCanvas() {
         onNodesChange={onNodesChange}
         onNodeDragStop={onNodeDragStop}
         onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+        onConnect={onConnect}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}

@@ -431,6 +431,12 @@ function executeCommandLocally(
     }
 
     if (source && target) {
+      // Bug 4 fix: prevent duplicate edges (same source+target pair)
+      const hasDuplicate = state.edges.some(
+        e => e.source === source && e.target === target
+      );
+      if (hasDuplicate) return;
+
       const edgeId = generateId();
       set((s) => ({
         edges: [

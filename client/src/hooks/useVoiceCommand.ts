@@ -257,14 +257,43 @@ function dispatchLocalIntent(intent: ClassifiedIntent, utterance: string): void 
       return;
     }
     case 'connect': {
-      // One target is the currently selected or last-mentioned element
-      const primaryTarget = state.selectedId || state.lastMentionedId;
-      // Find the other target by scanning the utterance for element names/aliases
-      const otherTarget = findElementByUtterance(utterance, state.elements);
-      if (primaryTarget && otherTarget && primaryTarget !== otherTarget) {
-        const connectCmd = makeConnectCommand(primaryTarget, otherTarget, { type: 'solid' });
-        state.applyCommands([connectCmd], utterance);
+      // Bug 3 fix: three silent-failure scenarios addressed:
+      // 1. No primary target → try finding both from utterance
+      // 2. No other target → speak error feedback
+      // 3. Self-match → exclude primary's names from search, pick different element
+
+      const primaryId = state.selectedId || state.lastMentionedId;
+
+      // Build a filtered utterance that excludes the primary element's names
+      // to prevent findElementByUtterance from matching the primary itself.
+      let filteredUtterance = utterance;
+      if (primaryId) {
+        const primaryEl = state.elements[primaryId];
+        if (primaryEl) {
+          const names = [primaryEl.label, ...primaryEl.voiceAliases.auto, ...primaryEl.voiceAliases.manual]
+            .filter(Boolean);
+          for (const name of names) {
+            filteredUtterance = filteredUtterance.replace(name, '');
+          }
+        }
       }
+
+      const otherTarget = findElementByUtterance(filteredUtterance, state.elements);
+
+      if (primaryId && otherTarget && primaryId !== otherTarget) {
+        const connectCmd = makeConnectCommand(primaryId, otherTarget, { type: 'solid' });
+        state.applyCommands([connectCmd], utterance);
+      } else if (!primaryId && !otherTarget) {
+        // No reference point at all — need user to select or name an element
+        import('../services/speechSynthesis').then(({ speak }) => {
+          speak('请先选中一个节点，或说出要连线的两个节点名称');
+        });
+      } else if (!otherTarget) {
+        import('../services/speechSynthesis').then(({ speak }) => {
+          speak('未找到要连接的目标节点，请再说一次');
+        });
+      }
+      // If primaryId === otherTarget (self-match), silently skip
       return;
     }
     case 'zoom-in':

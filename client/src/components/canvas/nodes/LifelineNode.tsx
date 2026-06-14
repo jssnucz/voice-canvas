@@ -28,7 +28,9 @@ function LifelineNode({ data, selected }: NodeProps<LifelineData>) {
         className="w-0 border-l-2 border-dashed"
         style={{ height: 380, borderColor: style.stroke }}
       />
+      {/* Bug 5 fix: add source Handle so edges can be drawn FROM lifeline nodes */}
       <Handle type="target" position={Position.Top} className="!bg-gray-500" />
+      <Handle type="source" position={Position.Bottom} className="!bg-gray-500" />
     </div>
   );
 }
