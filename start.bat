@@ -1,144 +1,130 @@
 @echo off
-chcp 65001 >nul
 setlocal enabledelayedexpansion
+title AI Voice Drawing Tool - Startup
+
+:: Jump to project directory immediately
+cd /d "%~dp0"
 
 echo.
-echo  ╔══════════════════════════════════════╗
-echo  ║   AI 语音绘图工具 — 一键启动       ║
-echo  ╚══════════════════════════════════════╝
+echo ================================================
+echo   AI Voice Drawing Tool - One-Click Startup
+echo ================================================
 echo.
 
-:: ============================================================
-:: 1. Node.js
-:: ============================================================
+:: ---- 1. Node.js ----
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [FAIL] 未检测到 Node.js
-    echo        请安装 Node.js 18+ : https://nodejs.org
-    goto :end
+    echo [FAIL] Node.js not found.
+    echo        Please install Node.js 18+ from https://nodejs.org
+    goto :fail
 )
 for /f "tokens=1 delims=v" %%v in ('node -v 2^>^&1') do set NODE_VER=%%v
 echo [ OK ] Node.js v%NODE_VER%
 
-:: ============================================================
-:: 2. npm
-:: ============================================================
+:: ---- 2. npm ----
 where npm >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [FAIL] 未检测到 npm（通常随 Node.js 一起安装）
-    goto :end
+    echo [FAIL] npm not found (usually comes with Node.js).
+    goto :fail
 )
 for /f "tokens=2 delims= " %%v in ('npm -v 2^>^&1') do set NPM_VER=%%v
 echo [ OK ] npm v%NPM_VER%
 
-:: ============================================================
-:: 3. 项目根目录
-:: ============================================================
-cd /d "%~dp0"
+:: ---- 3. package.json ----
 if not exist "package.json" (
-    echo [FAIL] 未找到 package.json，请从项目根目录运行 start.bat
-    goto :end
+    echo [FAIL] package.json not found.
+    echo        Please place start.bat in the project root directory.
+    goto :fail
 )
-echo [ OK ] 项目根目录: %~dp0
+echo [ OK ] Working directory: %cd%
 
-:: ============================================================
-:: 4. node_modules
-:: ============================================================
+:: ---- 4. node_modules ----
 if not exist "node_modules" (
-    echo [FAIL] 依赖未安装，请先运行: npm install
-    goto :end
+    echo [FAIL] Dependencies not installed.
+    echo        Please run: npm install
+    goto :fail
 )
-echo [ OK ] node_modules 已就绪
+echo [ OK ] node_modules ready
 
-:: ============================================================
-:: 5. server/.env + DEEPSEEK_API_KEY
-:: ============================================================
+:: ---- 5. server\.env ----
 if not exist "server\.env" (
-    echo [FAIL] server\.env 不存在
-    echo        请复制 server\.env.example 为 server\.env 并填入 API Key
-    goto :end
+    echo [FAIL] server\.env not found.
+    echo        Please copy server\.env.example to server\.env:
+    echo        copy server\.env.example server\.env
+    echo        Then edit server\.env and set DEEPSEEK_API_KEY.
+    goto :fail
 )
+echo [ OK ] server\.env found
 
+:: ---- 6. DEEPSEEK_API_KEY ----
 set HAS_KEY=0
 for /f "usebackq tokens=1,2 delims==" %%a in ("server\.env") do (
-    set "key=%%a"
-    set "val=%%b"
-    if "!key!"=="DEEPSEEK_API_KEY" if not "!val!"=="" if not "!val!"=="your_api_key_here" set HAS_KEY=1
+    if "%%a"=="DEEPSEEK_API_KEY" (
+        if not "%%b"=="" (
+            if not "%%b"=="your_api_key_here" set HAS_KEY=1
+        )
+    )
 )
 if !HAS_KEY!==0 (
-    echo [FAIL] server\.env 中 DEEPSEEK_API_KEY 未配置
-    echo        请编辑 server\.env 填入你的 DeepSeek API Key
-    goto :end
+    echo [FAIL] DEEPSEEK_API_KEY is not set in server\.env.
+    echo        Please edit server\.env and add your DeepSeek API key.
+    goto :fail
 )
-echo [ OK ] DEEPSEEK_API_KEY 已配置
+echo [ OK ] DEEPSEEK_API_KEY configured
 
-:: ============================================================
-:: 6. DATABASE_URL（可选，仅提示）
-:: ============================================================
+:: ---- 7. DATABASE_URL (optional) ----
 set HAS_DB=0
 for /f "usebackq tokens=1,2 delims==" %%a in ("server\.env") do (
-    set "key=%%a"
-    set "val=%%b"
-    if "!key!"=="DATABASE_URL" if not "!val!"=="" set HAS_DB=1
+    if "%%a"=="DATABASE_URL" (
+        if not "%%b"=="" set HAS_DB=1
+    )
 )
 if !HAS_DB!==0 (
-    echo [WARN] DATABASE_URL 未配置 — 画布存储功能不可用
+    echo [WARN] DATABASE_URL not set - diagram storage unavailable
 ) else (
-    echo [ OK ] DATABASE_URL 已配置
+    echo [ OK ] DATABASE_URL configured
 )
 
-:: ============================================================
-:: 7. 端口检查
-:: ============================================================
+:: ---- 8. Port check ----
 set PORT_FREE=1
-
 netstat -ano 2>nul | findstr ":3001 " | findstr "LISTENING" >nul
 if !errorlevel!==0 (
-    echo [WARN] 端口 3001 已被占用 — 后端可能已在运行
+    echo [WARN] Port 3001 is in use - server may already be running
     set PORT_FREE=0
 )
-
 netstat -ano 2>nul | findstr ":5173 " | findstr "LISTENING" >nul
 if !errorlevel!==0 (
-    echo [WARN] 端口 5173 已被占用 — 前端可能已在运行
+    echo [WARN] Port 5173 is in use - client may already be running
     set PORT_FREE=0
 )
+if !PORT_FREE!==1 echo [ OK ] Ports 3001 and 5173 are free
 
-if !PORT_FREE!==1 (
-    echo [ OK ] 端口 3001、5173 空闲
-)
-
-:: ============================================================
-:: 启动
-:: ============================================================
+:: ---- Start ----
 echo.
-echo  ═══════════════════════════════════════
-echo   启动后端 http://localhost:3001
-echo   启动前端 http://localhost:5173
-echo  ═══════════════════════════════════════
+echo ================================================
+echo   Starting server on http://localhost:3001
+echo   Starting client on http://localhost:5173
+echo ================================================
 echo.
 
-:: 启动后端
-start "VoiceCanvas Server" cmd /c "cd /d "%~dp0server" && npx tsx src/index.ts"
-
-:: 等后端就绪
-echo   等待后端就绪...
+start "VoiceCanvas-Server" cmd /k "cd /d "%~dp0server" && npx tsx src/index.ts"
 timeout /t 3 /nobreak >nul
+start "VoiceCanvas-Client" cmd /k "cd /d "%~dp0client" && npx vite --host"
 
-:: 启动前端
-start "VoiceCanvas Client" cmd /c "cd /d "%~dp0client" && npx vite --host"
-
+echo   All done. Open http://localhost:5173 in your browser.
 echo.
-echo   ✅ 启动完成，浏览器打开 http://localhost:5173
-echo.
-echo   关闭此窗口不会停止服务，请关闭后端/前端窗口。
+echo   Close the Server and Client windows to stop.
 echo.
 
-goto :eof
+pause
+exit /b 0
 
-:end
+:fail
 echo.
-echo   ❌ 环境检查未通过，请修复上述问题后重试。
+echo ================================================
+echo   Environment check FAILED.
+echo   Fix the issues above and run start.bat again.
+echo ================================================
 echo.
 pause
 exit /b 1
