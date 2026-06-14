@@ -11,6 +11,23 @@ import type {
 import { ELEMENT_DEFAULTS, makeCreateCommand, makeDeleteCommand, makeUpdateCommand, makeMoveCommand, makeQueryCommand } from '@shared/types';
 import { generateId } from '../utils/id';
 
+const initialData = {
+  mode: 'flowchart' as DiagramMode,
+  elements: {} as Record<string, CanvasElement>,
+  edges: [] as CanvasEdge[],
+  selectedId: null as string | null,
+  lastMentionedId: null as string | null,
+  history: [] as CommandRecord[],
+  historyIndex: -1,
+  phase: 'idle' as VoicePhase,
+  transcript: '',
+  interimTranscript: '',
+  error: null as string | null,
+  theme: 'dark' as const,
+};
+
+export { initialData as initialState };
+
 interface Store {
   // --- Diagram State ---
   mode: DiagramMode;
@@ -60,18 +77,7 @@ interface Store {
 }
 
 export const useDiagramStore = create<Store>((set, get) => ({
-  mode: 'flowchart',
-  elements: {},
-  edges: [],
-  selectedId: null,
-  lastMentionedId: null,
-  history: [],
-  historyIndex: -1,
-  phase: 'idle',
-  transcript: '',
-  interimTranscript: '',
-  error: null,
-  theme: 'dark',
+  ...initialData,
 
   setMode: (mode) => set({ mode }),
   setPhase: (phase) => set({ phase }),
