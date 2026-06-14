@@ -29,7 +29,7 @@ describe('captureCanvas', () => {
     expect(result).toBe('iVBORw0KGgoAAAANSUhEUgAA');
     expect(mockToPng).toHaveBeenCalledWith(mockDiv, {
       backgroundColor: '#111827',
-      pixelRatio: 1,
+      pixelRatio: 2,
       quality: 0.85,
     });
   });

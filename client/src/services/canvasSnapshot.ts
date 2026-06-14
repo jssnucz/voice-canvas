@@ -9,7 +9,7 @@ export async function captureCanvas(): Promise<string> {
   try {
     const dataUrl = await toPng(canvasElement as HTMLElement, {
       backgroundColor: '#111827',
-      pixelRatio: 1,
+      pixelRatio: 2,
       quality: 0.85,
     });
 

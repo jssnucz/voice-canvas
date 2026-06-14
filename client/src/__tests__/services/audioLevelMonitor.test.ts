@@ -36,24 +36,19 @@ const mockAudioCtx = {
   state: 'running',
 };
 
-// Mock requestAnimationFrame — recursive: each call re-registers the callback
-let rafCallback: (() => void) | null = null;
-let fakeTime = 0;
-
+// Mock setInterval for AudioLevelMonitor (replaced RAF with interval for CPU efficiency)
+let intervalCallback: (() => void) | null = null;
 vi.stubGlobal('AudioContext', vi.fn(() => mockAudioCtx));
-vi.stubGlobal('requestAnimationFrame', vi.fn((cb: () => void) => {
-  rafCallback = cb;
+vi.stubGlobal('setInterval', vi.fn((cb: () => void) => {
+  intervalCallback = cb;
   return 1;
 }));
-vi.stubGlobal('cancelAnimationFrame', vi.fn(() => { rafCallback = null; }));
-// Mock performance.now with incrementing counter (avoids same-ms issue)
-vi.stubGlobal('performance', { now: () => { const t = fakeTime; fakeTime += 100; return t; } });
+vi.stubGlobal('clearInterval', vi.fn(() => { intervalCallback = null; }));
 
-/** Fire N RAF ticks, re-registering the callback each time (simulating real RAF loop) */
+/** Fire N interval ticks (each tick = one sample() call) */
 function tick(n = 1) {
   for (let i = 0; i < n; i++) {
-    const cb = rafCallback;
-    if (cb) cb(); // cb calls requestAnimationFrame again, re-setting rafCallback
+    intervalCallback?.();
   }
 }
 
@@ -90,7 +85,7 @@ describe('AudioLevelMonitor', () => {
   });
 
   afterEach(() => {
-    rafCallback = null;
+    intervalCallback = null;
   });
 
   it('creates successfully with a MediaStream', () => {

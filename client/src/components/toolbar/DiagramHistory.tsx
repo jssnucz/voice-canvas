@@ -56,27 +56,22 @@ export function DiagramHistory() {
     try {
       const diagram = await apiClient.getDiagram(id);
       const st = diagram.state;
-      useDiagramStore.getState().clearAll();
-      // Restore mode
-      useDiagramStore.getState().setMode(diagram.mode);
-      // Restore elements one by one
+      // Batch restore: single setState() instead of N addElement + M addEdge calls.
+      // Each addElement/addEdge triggers a separate re-render — for a 20-element
+      // diagram this was 35+ renders. Now it's 1.
+      const elMap: Record<string, typeof st.elements[number]> = {};
       for (const el of st.elements) {
-        useDiagramStore.getState().addElement({
-          id: el.id,
-          type: el.type,
-          label: el.label,
-          voiceAliases: el.voiceAliases,
-          position: el.position,
-          size: el.size,
-          style: el.style,
-        });
+        elMap[el.id] = el;
       }
-      // Restore edges
-      for (const edge of st.edges) {
-        useDiagramStore.getState().addEdge(edge);
-      }
-      if (st.selectedId) useDiagramStore.getState().setSelected(st.selectedId);
-      if (st.lastMentionedId) useDiagramStore.getState().setLastMentioned(st.lastMentionedId);
+      useDiagramStore.setState({
+        mode: diagram.mode,
+        elements: elMap,
+        edges: st.edges,
+        selectedId: st.selectedId ?? null,
+        lastMentionedId: st.lastMentionedId ?? null,
+        history: [],
+        historyIndex: -1,
+      });
     } catch (err: any) {
       alert('加载失败: ' + err.message);
     }
