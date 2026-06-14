@@ -36,7 +36,9 @@ export async function buildApp(pool?: pg.Pool) {
     server.log.warn('DATABASE_URL not set — diagram storage will be unavailable');
   }
 
-  await server.register(cors, { origin: true });
+  await server.register(cors, {
+    origin: [/^https?:\/\/localhost(:\d+)?$/, /^https?:\/\/127\.0\.0\.1(:\d+)?$/],
+  });
 
   server.get('/api/health', async () => ({ status: 'ok', timestamp: Date.now() }));
 

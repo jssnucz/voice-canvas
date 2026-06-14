@@ -10,6 +10,7 @@ import type {
 } from '@shared/types';
 import { ELEMENT_DEFAULTS, makeCreateCommand, makeDeleteCommand, makeUpdateCommand, makeMoveCommand, makeQueryCommand } from '@shared/types';
 import { generateId } from '../utils/id';
+import { layoutFlowchart } from '../utils/layout';
 import type { NoiseState, NoiseLevel } from '../services/audioLevelMonitor';
 
 type AudioNoiseState = { level: number; state: NoiseState; noiseLevel: NoiseLevel };
@@ -336,6 +337,19 @@ function executeCommandLocally(
           label: edgeSpec.label,
           style: edgeSpec.style,
         });
+      }
+    }
+
+    // Item 1: Apply dagre auto-layout when payload.layout is specified.
+    // Overrides LLM's hardcoded coordinates with graph-based positioning.
+    if (cmd.payload.layout && Object.keys(newElements).length > 0) {
+      const allElements = Object.values({ ...state.elements, ...newElements });
+      const allEdges = [...state.edges, ...newEdges];
+      const layout = layoutFlowchart(allElements, allEdges);
+      for (const [id, pos] of layout) {
+        if (newElements[id]) {
+          newElements[id].position = pos;
+        }
       }
     }
 
