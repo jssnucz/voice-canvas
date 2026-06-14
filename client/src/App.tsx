@@ -5,6 +5,27 @@ import { TranscriptBar } from './components/voice/TranscriptBar';
 import { ModeSwitcher } from './components/toolbar/ModeSwitcher';
 import { useDiagramStore } from './store/diagramStore';
 
+/** Check if the current browser supports Web Speech API and microphone access. */
+function BrowserWarning() {
+  const isChrome = /Chrome/i.test(navigator.userAgent);
+  const isEdge = /Edg/i.test(navigator.userAgent);
+  const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const isHttps = location.protocol === 'https:';
+
+  if ((isChrome || isEdge) && (isLocalhost || isHttps)) return null;
+
+  return (
+    <div className="bg-yellow-800/90 text-yellow-200 px-4 py-2 text-sm text-center">
+      {!(isChrome || isEdge) && (
+        <span>请使用 <strong>Chrome</strong> 或 <strong>Edge</strong> 浏览器。 </span>
+      )}
+      {!isLocalhost && !isHttps && (
+        <span>请通过 <strong>localhost</strong> 或 <strong>HTTPS</strong> 访问，否则麦克风无法开启。</span>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const phase = useDiagramStore((s) => s.phase);
   const isListening = useDiagramStore((s) => s.phase === 'listening');
@@ -18,6 +39,7 @@ export default function App() {
           <VoiceButton />
         </div>
       </header>
+      <BrowserWarning />
       <main className="flex-1 relative">
         <DiagramCanvas />
         <TranscriptBar />
