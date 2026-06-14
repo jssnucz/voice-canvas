@@ -22,7 +22,6 @@
 
 - React hooks（useSpeechRecognition、useVoiceCommand）— 需 React Testing Library，二期
 - 自定义节点/边组件 — 纯视觉组件，视觉回归测试投入产出比低
-- Fastify 路由端到端测试 — 需真实 LLM API，当前 mock 层已覆盖核心逻辑
 
 ---
 
@@ -47,10 +46,11 @@
 
 ```json
 // root package.json (devDependencies)
-"vitest": "^3.x"
+"vitest": "^3.2.0"
+"@vitest/coverage-v8": "^3.2.0"
 
-// 每个 workspace
-"vite-tsconfig-paths": "^5.x"  // 解析 path alias
+// client + server workspace (devDependencies)
+"vite-tsconfig-paths": "^5.1.0"  // 解析 @shared/* 别名；shared 自身不需要
 ```
 
 ### 3.2 Workspace 配置
@@ -64,7 +64,7 @@ export default [
 ]
 ```
 
-**`shared/vitest.config.ts`**:
+**`shared/vitest.config.ts`**（无需 `vite-tsconfig-paths`，shared 自身不 import `@shared/*`）:
 ```ts
 import { defineConfig } from 'vitest/config';
 
@@ -231,7 +231,9 @@ export default defineConfig({
 | `speak` | 创建 SpeechSynthesisUtterance，lang='zh-CN'，rate=1.0；调用 speechSynthesis.cancel + speak |
 | `speak` | speechSynthesis 不可用时不抛错 |
 
-**Mock 策略**: mock `window.speechSynthesis`。
+**Mock 策略**:
+- `window.speechSynthesis` → `vi.spyOn` mock cancel/speak 方法
+- `SpeechSynthesisUtterance` 构造函数 → jsdom 无此全局对象，必须 mock：`globalThis.SpeechSynthesisUtterance = vi.fn()`，然后验证构造参数（text, lang, rate）
 
 ---
 
@@ -247,7 +249,7 @@ export default defineConfig({
 
 | 被测项 | 测试点 |
 |--------|--------|
-| `layoutFlowchart` | 空输入 → 空 Map；单节点 → 返回有效坐标；链式 3 节点 → y 坐标递增（TB 布局）；spacing 合理（≥80px nodesep） |
+| `layoutFlowchart` | 空输入 → 空 Map；单节点 → 返回有效坐标；链式 3 节点 → y 坐标递增且不重叠（TB 布局）；每个节点坐标无 NaN/Infinity |
 
 ---
 
@@ -285,8 +287,25 @@ export default defineConfig({
 | `selectModel('query')` | → MODEL_LITE |
 | `callLLM` | 参数透传到 OpenAI client（model/systemPrompt/userMessage/temperature/maxTokens）；返回 content 文本；空 content → throw |
 | `callLLM` | response_format='json_object' → 设置 { type: 'json_object' }；非 json 时不设置 |
+| `callMultimodalLLM` | 参数透传（model/systemPrompt/userMessage/imageBase64）；返回 content；空 content → throw |
+| `callMultimodalLLM` | messages[1].content 为多模态数组 [{type:'text'},{type:'image_url', image_url:{url:...}}]；response_format 强制 json_object |
 
 **Mock 策略**: `vi.mock('openai')`，对 `client.chat.completions.create` 做 mock。
+
+### 4.13 server/src/__tests__/routes/command.test.ts — API 路由集成测试
+
+Mock `callLLM` 和 `selectModel`，用 Fastify 的 `inject()` 方法测 handler 逻辑，不需要真实 LLM API。
+
+| 被测项 | 测试点 |
+|--------|--------|
+| POST /api/command | 200 — 返回 commands + voiceReply；canvasSummary 注入 userMessage；selectModel 用 intent 参数 |
+| POST /api/command | intent='query' → systemPrompt 含"查询模式" + commands 为空 |
+| POST /api/command | intent='visual'/'generate' → selectModel 返回 MODEL_CHAT |
+| POST /api/command | 错误路径 — callLLM 返回非法 JSON → 不重试（SyntaxError 直接 break）；Zod 校验失败 → 不重试（ZodError 直接 break）；网络错误 → 重试 1 次后再失败 → 422 |
+| POST /api/command | voiceReply 为 null 时响应不含 voiceReply 字段 |
+| POST /api/command | diagramState.mode='architecture' → systemPrompt 含 DIAGRAM_TYPE_PROMPTS['architecture'] |
+
+**Mock 策略**: `vi.mock` llm 模块（mock selectModel 返回值和 callLLM 行为），通过 `buildApp()` 创建 Fastify 实例并用 `app.inject()` 发请求。
 
 ---
 
@@ -323,6 +342,8 @@ voice-canvas/
 │           │   └── command.test.ts
 │           ├── utils/
 │           │   └── canvasSummary.test.ts
+│           ├── routes/
+│           │   └── command.test.ts
 │           └── services/
 │               └── llm.test.ts
 └── docs/
@@ -357,8 +378,9 @@ Phase 3: 核心逻辑测试
 Phase 4: Mock 依赖测试
   ├── client/services/api.test.ts               (mock fetch)
   ├── client/services/imageExport.test.ts       (mock html-to-image + DOM)
-  ├── client/services/speechSynthesis.test.ts   (mock Web Speech API)
-  └── client/utils/layout.test.ts               (依赖 dagre)
+  ├── client/services/speechSynthesis.test.ts   (mock SpeechSynthesisUtterance + speechSynthesis)
+  ├── client/utils/layout.test.ts               (依赖 dagre)
+  └── server/routes/command.test.ts             (mock callLLM → Fastify inject)
 
 Phase 5: 验证
   └── npx vitest run --coverage
@@ -366,5 +388,6 @@ Phase 5: 验证
 
 ---
 
-*设计文档版本：v1.0*
+*设计文档版本：v1.1*
 *日期：2026-06-14*
+*修订：review 反馈 — 补 callMultimodalLLM 用例、补 API 路由集成测试、修 layout 间距断言、修 speechSynthesis mock 策略、pin vitest 版本*
