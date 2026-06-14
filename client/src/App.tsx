@@ -3,6 +3,7 @@ import { VoiceOverlay } from './components/voice/VoiceOverlay';
 import { VoiceButton } from './components/voice/VoiceButton';
 import { TranscriptBar } from './components/voice/TranscriptBar';
 import { ModeSwitcher } from './components/toolbar/ModeSwitcher';
+import { DiagramHistory } from './components/toolbar/DiagramHistory';
 import { useDiagramStore } from './store/diagramStore';
 
 /** Check if the current browser supports Web Speech API and microphone access. */
@@ -41,6 +42,7 @@ export default function App() {
       </header>
       <BrowserWarning />
       <main className="flex-1 relative">
+        <DiagramHistory />
         <DiagramCanvas />
         <TranscriptBar />
         <VoiceOverlay phase={phase} />
