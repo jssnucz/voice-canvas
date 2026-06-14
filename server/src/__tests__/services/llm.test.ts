@@ -32,6 +32,10 @@ describe('selectModel', () => {
   it('returns MODEL_LITE for query intent', () => {
     expect(selectModel('query')).toBe(MODEL_LITE);
   });
+
+  it('returns MODEL_LITE for unknown intent (default branch)', () => {
+    expect(selectModel('unknown' as 'text')).toBe(MODEL_LITE);
+  });
 });
 
 describe('callLLM', () => {

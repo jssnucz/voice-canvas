@@ -44,11 +44,18 @@ describe('generateCanvasSummary', () => {
     expect(summary).toContain('architecture');
   });
 
-  it('includes element count', () => {
+  it('includes element count (plural)', () => {
     const summary = generateCanvasSummary(
       makeState({ elements: [makeElement('e1'), makeElement('e2')] })
     );
     expect(summary).toContain('2个');
+  });
+
+  it('includes element count (singular)', () => {
+    const summary = generateCanvasSummary(
+      makeState({ elements: [makeElement('single')] })
+    );
+    expect(summary).toContain('1个');
   });
 
   it('shows element details — id, type, label, position', () => {

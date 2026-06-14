@@ -1,0 +1,1 @@
+import{t as n}from"./index-DBV0ugPJ.js";async function r(){const t=document.querySelector(".react-flow__viewport");if(!t)throw new Error("画布未就绪");const e=await n(t,{backgroundColor:"#111827",pixelRatio:2,quality:.95}),o=document.createElement("a");o.download=`voice-canvas-${Date.now()}.png`,o.href=e,o.click()}export{r as exportToPNG};
