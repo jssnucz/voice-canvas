@@ -2,12 +2,37 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { commandRoutes } from './routes/command.js';
 import { multimodalRoutes } from './routes/multimodal.js';
+import { diagramRoutes } from './routes/diagrams.js';
+import { createPool } from './db/pool.js';
+import { migrate } from './db/migrate.js';
+import type pg from 'pg';
 
-export async function buildApp() {
+// Extend FastifyInstance to include db
+declare module 'fastify' {
+  interface FastifyInstance {
+    db: pg.Pool;
+  }
+}
+
+export async function buildApp(pool?: pg.Pool) {
   const server = Fastify({ logger: false });
 
   if (!process.env.DEEPSEEK_API_KEY) {
     server.log.warn('DEEPSEEK_API_KEY not set — LLM endpoints will return errors');
+  }
+
+  // Database
+  if (pool) {
+    server.decorate('db', pool);
+  } else {
+    const dbPool = createPool();
+    server.decorate('db', dbPool);
+    await migrate(dbPool);
+
+    // Close pool on shutdown
+    server.addHook('onClose', async () => {
+      await dbPool.end();
+    });
   }
 
   await server.register(cors, { origin: true });
@@ -16,11 +41,11 @@ export async function buildApp() {
 
   await server.register(commandRoutes, { prefix: '/api' });
   await server.register(multimodalRoutes, { prefix: '/api' });
+  await server.register(diagramRoutes, { prefix: '/api' });
 
   return server;
 }
 
-// When running directly (not imported), start the server
 const isMain = process.argv[1]?.includes('index');
 if (isMain) {
   const server = await buildApp();
