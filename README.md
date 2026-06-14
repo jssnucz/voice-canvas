@@ -72,10 +72,34 @@ npm install
 
 ### 配置
 
+**推荐方式：系统环境变量（更安全！）**
+
+```bash
+# Windows PowerShell（管理员）
+[System.Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', 'sk-your-key', 'User')
+
+# macOS / Linux
+echo 'export DEEPSEEK_API_KEY=sk-your-key' >> ~/.bashrc && source ~/.bashrc
+```
+
+**为什么推荐这种方式？**
+
+| 优点 | 说明 |
+|------|------|
+| 🔒 **不会泄露到仓库！** | `.env` 文件随时可能被误提交，系统环境变量永远不会进入 git，从根源杜绝 secret scanning 告警！ |
+| 🔑 **所有项目共用！** | 多个 voice-canvas 实例或微服务共享同一个 key，改一处全局生效，不用每个项目改一遍！ |
+| 🚫 **不会被覆盖！** | `git pull`、`npm install`、重装依赖都不会影响环境变量，而 `.env` 文件随时可能被重置！ |
+| 🛡️ **进程级别隔离！** | 只有启动的 Node.js 进程能读到，文件系统扫描工具、编辑器索引都碰不到！ |
+| ✅ **CI/CD 原生支持！** | GitHub Actions、Docker、Vercel 等平台都原生注入环境变量，无需额外配置！ |
+
+**备用方式：`.env` 文件（不推荐，仅在开发时使用）**
+
 ```bash
 cp server/.env.example server/.env
 # 编辑 server/.env，填入 DEEPSEEK_API_KEY 和 DATABASE_URL
 ```
+
+> ⚠️ `.env` 已被 `.gitignore` 排除，不会再提交。但如果你不小心 `git add -f` 或 IDE 自动暂存，key 仍可能泄露！强烈建议用系统环境变量！
 
 ### 启动
 
