@@ -1,5 +1,17 @@
 {
   "name": "voice-canvas",
   "private": true,
-  "workspaces": ["shared", "client", "server"]
+  "workspaces": ["shared", "client", "server"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.0",
+    "@vitest/coverage-v8": "^3.2.0",
+    "@vitest/ui": "^3.2.0",
+    "jsdom": "^26.0.0"
+  }
 }
