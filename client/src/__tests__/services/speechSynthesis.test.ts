@@ -8,18 +8,16 @@ const MockUtterance = vi.fn(function (this: typeof mockUtteranceInstance, text: 
   return this;
 }) as unknown as typeof SpeechSynthesisUtterance;
 
+function setupSpeechSynthesis(value: unknown) {
+  vi.stubGlobal('SpeechSynthesisUtterance', MockUtterance);
+  vi.stubGlobal('speechSynthesis', value);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubGlobal('SpeechSynthesisUtterance', MockUtterance);
-
-  const mockSpeechSynthesis = {
+  setupSpeechSynthesis({
     speak: vi.fn(),
     cancel: vi.fn(),
-  };
-  vi.stubGlobal('speechSynthesis', mockSpeechSynthesis);
-  Object.defineProperty(window, 'speechSynthesis', {
-    value: mockSpeechSynthesis,
-    writable: true,
   });
 });
 
@@ -56,7 +54,7 @@ describe('speak', () => {
   });
 
   it('does not throw when speechSynthesis is unavailable', () => {
-    Object.defineProperty(window, 'speechSynthesis', { value: undefined, writable: true });
+    vi.stubGlobal('speechSynthesis', undefined);
 
     expect(() => speak('should not crash')).not.toThrow();
   });

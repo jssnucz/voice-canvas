@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildDiagramState } from '../../services/stateSerializer';
-import { useDiagramStore } from '../../store/diagramStore';
+import { useDiagramStore, initialState } from '../../store/diagramStore';
 import type { CanvasElement, CanvasEdge } from '@shared/types';
 
 describe('buildDiagramState', () => {
@@ -67,7 +67,7 @@ describe('buildDiagramState', () => {
   });
 
   it('handles empty canvas gracefully', () => {
-    useDiagramStore.setState(useDiagramStore.getInitialState());
+    useDiagramStore.setState(initialState, true);
 
     const result = buildDiagramState(useDiagramStore.getState());
     expect(result.elements).toHaveLength(0);
