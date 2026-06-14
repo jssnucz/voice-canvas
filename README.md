@@ -175,7 +175,8 @@ voice-canvas/
 
 ## 设计文档
 
-- [项目设计书](docs/superpowers/specs/2026-06-12-ai-voice-drawing-tool-design.md)
+- [项目设计书](docs/superpowers/specs/2026-06-12-ai-voice-drawing-tool-design.md) — 产品定位、功能规划、技术架构、重难点分析
+- [语音指令能力矩阵](docs/voice-command-capabilities.md) — 计划 vs 实现对照表，含未完成项原因说明
 - [实现计划](docs/superpowers/plans/2026-06-12-ai-voice-drawing-tool-plan.md)
 
 ## License
