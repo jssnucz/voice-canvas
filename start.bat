@@ -72,7 +72,7 @@ echo.
 echo ========================================
 echo   Starting frontend on http://localhost:5173
 echo ========================================
-start "VoiceCanvas-Client" cmd /k "cd /d "%~dp0client" && echo Frontend: http://localhost:5173 && echo. && npm run dev && pause"
+start "VoiceCanvas-Client" cmd /k "cd /d "%~dp0client" && echo Frontend: http://localhost:5173 && echo. && npm run dev -- --host && pause"
 
 echo.
 echo ========================================
