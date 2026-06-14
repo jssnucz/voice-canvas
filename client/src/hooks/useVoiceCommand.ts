@@ -182,7 +182,7 @@ export function useVoiceCommand() {
     [executeRemoteCommand, store]
   );
 
-  const { isListening, start, stop } = useSpeechRecognition({
+  const { isListening, micPermission, start, stop } = useSpeechRecognition({
     lang: 'zh-CN',
     continuous: true,
     interimResults: true,
@@ -190,7 +190,7 @@ export function useVoiceCommand() {
     onError: (err) => store.setError(err),
   });
 
-  return { isListening, start, stop };
+  return { isListening, micPermission, start, stop };
 }
 
 // Dispatch a single local intent using its localAction discriminator (not reason string matching).
