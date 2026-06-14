@@ -7,7 +7,6 @@ import { buildDiagramState } from '../services/stateSerializer';
 import { cleanUtterance, isUtteranceNoise } from '../services/utteranceCleaner';
 import { makeConnectCommand } from '@shared/types';
 import type { LLMResponse, CanvasElement } from '@shared/types';
-import type { NoiseState } from '../services/audioLevelMonitor';
 
 // Layer 3a: volume + confidence joint noise gate thresholds
 const NOISE_GATE_VOLUME_LOW = 20;   // RMS < 20% → likely not speech
@@ -17,8 +16,6 @@ const NOISE_GATE_VOLUME_VERY_LOW = 10; // RMS < 10% → almost certainly noise
 export function useVoiceCommand() {
   const store = useDiagramStore();
   const pendingExportRef = useRef(false);
-  const audioLevelRef = useRef(0);          // latest audio level (updated by onLevel callback)
-  const noiseStateRef = useRef<NoiseState>('silence');
 
   const executeRemoteCommand = useCallback(
     async (utterance: string, pipeline: 'text' | 'visual' | 'generate' | 'query') => {
@@ -219,7 +216,7 @@ export function useVoiceCommand() {
     [executeRemoteCommand, store]
   );
 
-  const { isListening, micPermission, audioLevel, noiseState, noiseLevel, start, stop } = useSpeechRecognition({
+  const { isListening, micPermission, audioLevel, noiseState, noiseLevel, audioLevelRef, noiseStateRef, start, stop } = useSpeechRecognition({
     lang: 'zh-CN',
     continuous: true,
     interimResults: true,
@@ -227,18 +224,10 @@ export function useVoiceCommand() {
     onError: (err) => store.setError(err),
   });
 
-  // Keep refs in sync for the noise gate (refs avoid stale closures in handleFinalResult)
-  audioLevelRef.current = audioLevel;
-  noiseStateRef.current = noiseState;
-
-  // Throttled store push: only on state transitions, max every 500ms.
-  // Avoids 10Hz Zustand subscriber checks that degrade page performance.
-  const lastPushRef = useRef<{ state: string; time: number }>({ state: '', time: 0 });
-  const now = Date.now();
-  if (noiseState !== lastPushRef.current.state || now - lastPushRef.current.time > 500) {
-    lastPushRef.current = { state: noiseState, time: now };
-    store.setAudioState({ level: audioLevel, state: noiseState, noiseLevel });
-  }
+  // Push audio state to store only on noiseState transitions.
+  // audioLevel/noiseState/noiseLevel are now React-state-transition values,
+  // not per-sample high-frequency updates. Safe to push on every render.
+  store.setAudioState({ level: audioLevel, state: noiseState, noiseLevel });
 
   return { isListening, micPermission, audioLevel, noiseState, start, stop };
 }

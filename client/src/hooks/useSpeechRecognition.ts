@@ -83,9 +83,14 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
 
   const [isListening, setIsListening] = useState(false);
   const [micPermission, setMicPermission] = useState<'prompt' | 'granted' | 'denied' | 'unsupported'>('prompt');
-  const [audioLevel, setAudioLevel] = useState(0);
-  const [noiseState, setNoiseState] = useState<NoiseState>('silence');
-  const [noiseLevel, setNoiseLevel] = useState<NoiseLevel>('low');
+  // audioLevel/noiseState/noiseLevel kept in refs (updated at 10Hz by AudioMonitor).
+  // React state for these is only updated on *transitions* to avoid per-sample re-renders
+  // that make the page unresponsive. Consumers needing per-sample data read the refs.
+  const audioLevelRef = useRef(0);
+  const noiseStateRef = useRef<NoiseState>('silence');
+  const noiseLevelRef = useRef<NoiseLevel>('low');
+  const [displayNoiseState, setDisplayNoiseState] = useState<NoiseState>('silence');
+  const [displayNoiseLevel, setDisplayNoiseLevel] = useState<NoiseLevel>('low');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const monitorRef = useRef<AudioLevelMonitor | null>(null);
@@ -255,8 +260,13 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     }
     monitorRef.current = new AudioLevelMonitor(streamRef.current, {
       onLevel: (level, state) => {
-        setAudioLevel(level);
-        setNoiseState(state);
+        // Always update refs (noise gate needs per-sample data, no re-render)
+        audioLevelRef.current = level;
+        // Only update React state on transitions — avoids 10Hz re-renders
+        if (state !== noiseStateRef.current) {
+          noiseStateRef.current = state;
+          setDisplayNoiseState(state);
+        }
       },
       onSilence: (durationMs) => {
         onSilenceRef.current?.(durationMs);
@@ -271,7 +281,10 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
         }
       },
       onNoiseLevelChange: (level) => {
-        setNoiseLevel(level);
+        if (level !== noiseLevelRef.current) {
+          noiseLevelRef.current = level;
+          setDisplayNoiseLevel(level);
+        }
       },
     });
     monitorRef.current.start();
@@ -295,9 +308,13 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   return {
     isListening,
     micPermission,
-    audioLevel,
-    noiseState,
-    noiseLevel,
+    // Display values (React state, only updated on transitions — safe for rendering)
+    audioLevel: audioLevelRef.current,
+    noiseState: displayNoiseState,
+    noiseLevel: displayNoiseLevel,
+    // Refs for consumers that need per-sample data without re-renders (noise gate)
+    audioLevelRef,
+    noiseStateRef,
     start,
     stop,
   };
