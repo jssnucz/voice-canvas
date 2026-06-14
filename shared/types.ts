@@ -194,6 +194,55 @@ export interface MultimodalRequest {
   diagramState: CommandRequest['diagramState'];
 }
 
+// ========== Diagram Storage API Types ==========
+export interface DiagramListItem {
+  id: string;
+  name: string;
+  mode: DiagramMode;
+  updated_at: string;
+}
+
+export interface DiagramDetail {
+  id: string;
+  name: string;
+  mode: DiagramMode;
+  state: {
+    mode: DiagramMode;
+    elements: Array<{
+      id: string;
+      type: ElementType;
+      label: string;
+      voiceAliases: VoiceAliases;
+      position: { x: number; y: number };
+      size: { width: number; height: number };
+      style: ElementStyle;
+    }>;
+    edges: Array<{
+      id: string;
+      source: string;
+      target: string;
+      type: 'solid' | 'dashed';
+      label?: string;
+      style?: { stroke?: string; strokeWidth?: number };
+    }>;
+    selectedId: string | null;
+    lastMentionedId: string | null;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateDiagramBody {
+  name?: string;
+  mode?: DiagramMode;
+  state: DiagramDetail['state'];
+}
+
+export interface UpdateDiagramBody {
+  name?: string;
+  state?: DiagramDetail['state'];
+}
+
 // ========== Default styles per element type ==========
 export const ELEMENT_DEFAULTS: Record<ElementType, { width: number; height: number; fill: string; stroke: string }> = {
   'rounded-rect': { width: 160, height: 60, fill: '#E8F5E9', stroke: '#4CAF50' },

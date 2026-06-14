@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
+// Mock the pool
+const mockQuery = vi.fn();
+const mockPool = {
+  query: mockQuery,
+  on: vi.fn(),
+  end: vi.fn(),
+};
+
 const { mockCallLLM, mockCallMultimodalLLM } = vi.hoisted(() => ({
   mockCallLLM: vi.fn(),
   mockCallMultimodalLLM: vi.fn(),
@@ -20,7 +28,7 @@ let app: FastifyInstance;
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  app = await buildApp();
+  app = await buildApp(mockPool as unknown as Parameters<typeof buildApp>[0]);
   await app.ready();
 });
 
