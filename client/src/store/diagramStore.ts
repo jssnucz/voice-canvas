@@ -388,8 +388,26 @@ function executeCommandLocally(
   }
 
   if (cmd.action === 'connect') {
-    const [source, target] = cmd.targets;
-    if (source && target && cmd.payload?.edges?.[0]) {
+    // Resolve special tokens ('selected', 'lastMentioned') in targets
+    const resolvedTargets = resolveTargets(cmd.targets, state);
+    let [source, target] = resolvedTargets;
+
+    // Fallback: read source/target from payload.edges[0] (LLM may put them there)
+    const edgeSpec = cmd.payload?.edges?.[0];
+    if (!source && edgeSpec?.source) source = edgeSpec.source;
+    if (!target && edgeSpec?.target) target = edgeSpec.target;
+
+    // Also resolve edge spec source/target in case they contain special tokens
+    if (edgeSpec) {
+      const [edgeSource, edgeTarget] = resolveTargets(
+        [edgeSpec.source || '', edgeSpec.target || ''],
+        state
+      );
+      if (!source && edgeSource) source = edgeSource;
+      if (!target && edgeTarget) target = edgeTarget;
+    }
+
+    if (source && target) {
       const edgeId = generateId();
       set((s) => ({
         edges: [
@@ -398,9 +416,9 @@ function executeCommandLocally(
             id: edgeId,
             source,
             target,
-            type: cmd.payload!.edges![0].type || 'solid',
-            label: cmd.payload!.edges![0].label,
-            style: cmd.payload!.edges![0].style,
+            type: edgeSpec?.type || 'solid',
+            label: edgeSpec?.label,
+            style: edgeSpec?.style,
           },
         ],
       }));

@@ -33,9 +33,21 @@ export const SYSTEM_PROMPT = `你是软件工程图表绘制助手。根据用�
 - "solid": 同步调用（实线）
 - "dashed": 异步消息（虚线）
 
-## 操作示例
+## connect 操作格式
+对画布上已有的两个节点连线：
+{
+  "action": "connect",
+  "targets": ["<源节点ID>", "<目标节点ID>"],
+  "payload": {
+    "edges": [{"type": "solid", "label": "连线标签"}]
+  },
+  "reasoning": "将指定节点连线"
+}
+- targets[0] = 源节点ID（从画布状态中获取），targets[1] = 目标节点ID
+- 如果用户说"把选中的..."或"把它...", 用 "selected" 或 "lastMentioned" 作为 target
+- 如果用户用中文名称/别名引用节点，必须从画布状态中查找对应ID
 
-用户："画一个用户登录的流程，包含开始、输入账号密码、判断密码是否正确、成功进入首页、失败提示重新输入"
+## 操作示例
 输出：
 {
   "commands": [{

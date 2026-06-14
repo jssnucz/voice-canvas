@@ -7,7 +7,7 @@ export interface ClassifiedIntent {
   utterance: string;
   reason: string;
   /** Discriminator for action routing — use this instead of reason string matching. */
-  localAction?: 'undo' | 'redo' | 'clear' | 'select' | 'zoom-in' | 'zoom-out' | 'fit-view' | 'create' | 'command';
+  localAction?: 'undo' | 'redo' | 'clear' | 'select' | 'connect' | 'zoom-in' | 'zoom-out' | 'fit-view' | 'create' | 'command';
 }
 
 // Category 1: Create basic shapes (7 commands, includes sticky-note)
@@ -33,6 +33,9 @@ const DELETE_PATTERNS = [
 // Category 3: Undo/Redo (3 patterns)
 const UNDO_PATTERNS = [/撤销|回退|撤回/];
 const REDO_PATTERNS = [/重做|恢复|前进/];
+
+// Category 3b: Connect/Link (existing elements)
+const CONNECT_KEYWORDS = /连接|连线|连起来|连到|连上|连一下|接上/;
 
 // Category 4: Select/Focus (3 patterns)
 const SELECT_PATTERNS = [/选中|选择|聚焦|看这个/];
@@ -227,6 +230,18 @@ export function classifyIntent(
         localAction: 'command',
       };
     }
+  }
+
+  // Connect/Link — needs at least one target (selected or lastMentioned)
+  if (CONNECT_KEYWORDS.test(text) && hasTarget) {
+    const target = hasSelectedTarget ? 'selected' : 'lastMentioned';
+    return {
+      type: 'local',
+      commands: [],
+      utterance: text,
+      reason: '连线指令，本地执行',
+      localAction: 'connect',
+    };
   }
 
   // Fallback: send to remote text pipeline

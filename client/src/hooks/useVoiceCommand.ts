@@ -5,6 +5,7 @@ import { classifyIntent, splitUtterance, type ClassifiedIntent } from '../servic
 import { apiClient } from '../services/api';
 import { buildDiagramState } from '../services/stateSerializer';
 import { cleanUtterance } from '../services/utteranceCleaner';
+import { makeConnectCommand } from '@shared/types';
 import type { LLMResponse, CanvasElement } from '@shared/types';
 
 export function useVoiceCommand() {
@@ -210,6 +211,17 @@ function dispatchLocalIntent(intent: ClassifiedIntent, utterance: string): void 
     case 'select': {
       const match = findElementByUtterance(utterance, state.elements);
       if (match) state.setSelected(match);
+      return;
+    }
+    case 'connect': {
+      // One target is the currently selected or last-mentioned element
+      const primaryTarget = state.selectedId || state.lastMentionedId;
+      // Find the other target by scanning the utterance for element names/aliases
+      const otherTarget = findElementByUtterance(utterance, state.elements);
+      if (primaryTarget && otherTarget && primaryTarget !== otherTarget) {
+        const connectCmd = makeConnectCommand(primaryTarget, otherTarget, { type: 'solid' });
+        state.applyCommands([connectCmd], utterance);
+      }
       return;
     }
     case 'zoom-in':
