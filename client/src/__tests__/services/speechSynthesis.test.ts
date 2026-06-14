@@ -54,7 +54,7 @@ describe('speak', () => {
   });
 
   it('does not throw when speechSynthesis is unavailable', () => {
-    vi.stubGlobal('speechSynthesis', undefined);
+    setupSpeechSynthesis(undefined);
 
     expect(() => speak('should not crash')).not.toThrow();
   });

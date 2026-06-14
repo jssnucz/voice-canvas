@@ -1,0 +1,1 @@
+import{t as a}from"./index-DBV0ugPJ.js";async function e(){const r=document.querySelector(".react-flow__viewport");if(!r)throw new Error("画布元素未找到");try{return(await a(r,{backgroundColor:"#111827",pixelRatio:1,quality:.85})).split(",")[1]}catch(t){throw new Error(`截图失败: ${t.message}`)}}export{e as captureCanvas};

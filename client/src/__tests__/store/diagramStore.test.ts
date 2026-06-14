@@ -197,6 +197,21 @@ describe('applyCommands — create', () => {
     expect(s.edges).toHaveLength(1);
     expect(s.edges[0].type).toBe('dashed');
   });
+
+  it('skips element specs without a type (if (!spec.type) continue)', () => {
+    const cmd: DeltaCommand = {
+      action: 'create',
+      targets: [],
+      payload: { elements: [{ label: 'no type' } as Record<string, unknown> as { type: string; label: string }] },
+    };
+
+    useDiagramStore.getState().applyCommands([cmd], 'create without type');
+
+    const s = useDiagramStore.getState();
+    expect(Object.keys(s.elements)).toHaveLength(0);
+    // History continues to record
+    expect(s.history).toHaveLength(1);
+  });
 });
 
 describe('applyCommands — delete', () => {
@@ -260,6 +275,25 @@ describe('applyCommands — connect', () => {
     expect(s.edges[0].target).toBe('b');
     expect(s.history).toHaveLength(1);
     expect(s.history[0].inverse.action).toBe('delete');
+  });
+});
+
+describe('applyCommands — query', () => {
+  it('advances history but does not mutate elements or edges', () => {
+    useDiagramStore.getState().addElement(makeEl('e1'));
+
+    const cmd: DeltaCommand = {
+      action: 'query',
+      targets: ['e1'],
+    };
+
+    useDiagramStore.getState().applyCommands([cmd], '查询');
+
+    const s = useDiagramStore.getState();
+    expect(s.elements['e1']).toBeDefined(); // unchanged
+    expect(s.edges).toHaveLength(0);        // unchanged
+    expect(s.history).toHaveLength(1);
+    expect(s.historyIndex).toBe(0);
   });
 });
 
