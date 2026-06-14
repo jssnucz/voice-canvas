@@ -7,10 +7,10 @@ import { createPool } from './db/pool.js';
 import { migrate } from './db/migrate.js';
 import type pg from 'pg';
 
-// Extend FastifyInstance to include db
+// Extend FastifyInstance to include optional db
 declare module 'fastify' {
   interface FastifyInstance {
-    db: pg.Pool;
+    db?: pg.Pool;
   }
 }
 
@@ -21,18 +21,19 @@ export async function buildApp(pool?: pg.Pool) {
     server.log.warn('DEEPSEEK_API_KEY not set — LLM endpoints will return errors');
   }
 
-  // Database
+  // Database — optional, skip if DATABASE_URL is not configured
   if (pool) {
     server.decorate('db', pool);
-  } else {
+  } else if (process.env.DATABASE_URL) {
     const dbPool = createPool();
     server.decorate('db', dbPool);
     await migrate(dbPool);
 
-    // Close pool on shutdown
     server.addHook('onClose', async () => {
       await dbPool.end();
     });
+  } else {
+    server.log.warn('DATABASE_URL not set — diagram storage will be unavailable');
   }
 
   await server.register(cors, { origin: true });
@@ -41,7 +42,11 @@ export async function buildApp(pool?: pg.Pool) {
 
   await server.register(commandRoutes, { prefix: '/api' });
   await server.register(multimodalRoutes, { prefix: '/api' });
-  await server.register(diagramRoutes, { prefix: '/api' });
+
+  // Diagram routes only if db is available
+  if (server.db) {
+    await server.register(diagramRoutes, { prefix: '/api' });
+  }
 
   return server;
 }
