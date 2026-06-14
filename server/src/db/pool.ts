@@ -9,8 +9,8 @@ export function createPool(databaseUrl?: string): pg.Pool {
   }
   return new Pool({
     connectionString,
-    max: 50,
-    min: 10,
+    max: 5,
+    min: 2,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 3000,
   });

@@ -173,6 +173,7 @@ export const useDiagramStore = create<Store>((set, get) => ({
     })),
 
   applyCommands: (commands, utterance) => {
+    const records: CommandRecord[] = [];
     for (const cmd of commands) {
       const preState = get();
       const beforeElementIds = new Set(Object.keys(preState.elements));
@@ -199,21 +200,25 @@ export const useDiagramStore = create<Store>((set, get) => ({
         inverse.targets = newEdgeId ? [newEdgeId] : [];
       }
 
-      const record: CommandRecord = {
+      records.push({
         id: generateId(),
         timestamp: Date.now(),
         command: cmd,
         inverse,
         utterance,
-      };
-
-      const newHistory = postState.history.slice(0, postState.historyIndex + 1);
-      newHistory.push(record);
-      set({
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
       });
     }
+
+    // Batch history update: single set() instead of N per-loop-iteration calls.
+    // executeCommandLocally already updated elements/edges via set() (needed for
+    // correct inverse resolution), but history can be written once at the end.
+    const state = get();
+    const newHistory = state.history.slice(0, state.historyIndex + 1);
+    for (const r of records) newHistory.push(r);
+    set({
+      history: newHistory,
+      historyIndex: newHistory.length - 1,
+    });
   },
 
   undo: () => {

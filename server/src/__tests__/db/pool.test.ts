@@ -12,7 +12,7 @@ describe('createPool', () => {
   it('uses provided argument over env var', () => {
     const pool = createPool('postgresql://test:test@localhost:5432/testdb');
     expect(pool).toBeDefined();
-    expect(pool.options.max).toBe(50);
-    expect(pool.options.min).toBe(10);
+    expect(pool.options.max).toBe(5);
+    expect(pool.options.min).toBe(2);
   });
 });

@@ -37,8 +37,7 @@ export class AudioLevelMonitor {
   private analyser: AnalyserNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private stream: MediaStream | null = null;
-  private rafId: number | null = null;
-  private lastSampleTime = 0;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
 
   // Configuration
   private readonly speechThreshold: number;
@@ -108,14 +107,14 @@ export class AudioLevelMonitor {
 
   start(): void {
     if (!this.isAvailable) return;
-    this.lastSampleTime = performance.now();
-    this.loop();
+    this.sample(); // First sample immediately
+    this.intervalId = setInterval(() => this.sample(), this.sampleIntervalMs);
   }
 
   stop(): void {
-    if (this.rafId !== null) {
-      cancelAnimationFrame(this.rafId);
-      this.rafId = null;
+    if (this.intervalId !== null) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
     }
     this.history = [];
     this.silenceCounter = 0;
@@ -138,21 +137,10 @@ export class AudioLevelMonitor {
     this.destroyed = true;
   }
 
-  // ---- Private: main sampling loop ----
-
-  private loop = (): void => {
-    if (this.destroyed || !this.isAvailable) return;
-
-    const now = performance.now();
-    if (now - this.lastSampleTime >= this.sampleIntervalMs) {
-      this.lastSampleTime = now;
-      this.sample();
-    }
-
-    this.rafId = requestAnimationFrame(this.loop);
-  };
+  // ---- Private: sampling ----
 
   private sample(): void {
+    if (this.destroyed || !this.isAvailable) return;
     if (!this.analyser) return;
 
     const buffer = new Uint8Array(this.analyser.fftSize / 2); // 128 samples
