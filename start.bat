@@ -63,9 +63,7 @@ echo ========================================
 echo   Starting backend on http://localhost:3001
 echo   Keep the new window open!
 echo ========================================
-cd /d "%~dp0server"
-start "VoiceCanvas-Server" cmd /k "echo Backend: http://localhost:3001 && echo. && npx tsx src/index.ts"
-cd /d "%~dp0"
+start "VoiceCanvas-Server" cmd /k "cd /d "%~dp0server" && echo Backend: http://localhost:3001 && echo. && npm run dev && pause"
 
 echo Waiting for backend...
 timeout /t 4 /nobreak >nul
@@ -73,11 +71,8 @@ timeout /t 4 /nobreak >nul
 echo.
 echo ========================================
 echo   Starting frontend on http://localhost:5173
-echo   Keep the new window open!
 echo ========================================
-cd /d "%~dp0client"
-start "VoiceCanvas-Client" cmd /k "echo Frontend: http://localhost:5173 && echo. && npx vite --host"
-cd /d "%~dp0"
+start "VoiceCanvas-Client" cmd /k "cd /d "%~dp0client" && echo Frontend: http://localhost:5173 && echo. && npm run dev && pause"
 
 echo.
 echo ========================================
